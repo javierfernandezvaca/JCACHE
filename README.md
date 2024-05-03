@@ -14,13 +14,13 @@ Además, este poderoso paquete puede ser utilizado como una solución de almacen
 
 - `Expiración de los archivos y datos`: Puedes definir un tiempo de expiración personalizado para cada archivo y dato en caché. Después de este tiempo, los archivos y datos se consideran obsoletos y se eliminan de la caché.
 
-- `JCacheWidget`: Este es un poderoso y flexible widget encargado de obtener un archivo desde la caché. Proporciona una interfaz fácil de usar para descargar y cachear archivos en una aplicación Flutter.
-
 - `JCacheManager`: Esta es la clase administradora de la caché. Se encarga de todas las operaciones de caché, como almacenar, recuperar y eliminar archivos y datos obsoletos.
+
+- `JCacheWidget`: Este es un poderoso y flexible widget encargado de obtener un archivo desde la caché. Proporciona una interfaz fácil de usar para descargar y cachear archivos en una aplicación Flutter.
 
 ## Instalación
 
-Añada la librería **JCACHE** a su archivo `pubspec.yaml`:
+Añada la librería **JCache** a su archivo `pubspec.yaml`:
 
 ```yaml
 dependencies:
@@ -28,21 +28,115 @@ dependencies:
 ```
 
 ## Uso
-Ejemplo básico de cómo cachear un archivo de imagen:
+
+En Flutter, la gestión de la caché es una parte esencial para garantizar un 
+rendimiento óptimo de la aplicación y una experiencia de usuario fluida. `JCacheManager` y `JCacheWidget` son dos formas eficaces de administrar los datos y archivos en la caché respectivamente.
+
+Para utilizar este complemento despues de haberlo instalado previamente; puede hacerlo de la siguiente manera:
 
 ```dart
+// Añadir la librería.
 import 'package:jcache/jcache.dart';
 
 // ...
 
+// Inicializar la cache.
+await JCacheManager.init();
+
+// ...
+
+// Define some example data:
+
+/// Unique key for the user data.
+final userKey = 'user';
+
+/// URL of the user's image.
+final userImageUrl = 'https://example.com/image.png';
+
+/// Local path of the user's image.
+final userImagePath = '/path/local/image.png';
+
+/// Map containing the user's data.
+final userData = {
+  'name': 'John Doe',
+  'age': 35,
+  'resourceUrl': userImageUrl,
+  'resourcePath': userImagePath,
+};
+```
+
+### JCacheManager
+
+`JCacheManager` es una clase que proporciona métodos para administrar la caché. Cada dato se almacena con una clave única y tiene un tiempo de expiración, después del cual se elimina automáticamente. Esto permite un manejo eficiente de la memoria y garantiza que los datos no se vuelvan obsoletos.
+
+Para `JCacheManager`, puedes hacer lo siguiente:
+
+```dart
+// Store the data in the cache.
+await JCacheManager.setData(key: userKey, value: userData);
+
+// Retrieve the data from the cache.
+Map<String, dynamic>? data = await JCacheManager.getData(userKey);
+```
+
+```dart
+// Store the file path in the cache.
+await JCacheManager.setFile(url: userImageUrl, path: userImagePath);
+
+// Retrieve the file path from the cache.
+String? image = await JCacheManager.getFile(userKey);
+```
+
+```dart
+// Listen for changes in a record.
+Stream<JCacheManagerData> userStream = JCacheManager.watch(userKey);
+userStream.listen((event) {
+  debugPrint('Data changed: ${event.data}');
+});
+```
+
+```dart
+// Remove a record from the cache.
+JCacheManager.remove(userKey);
+
+// Clear all records from the cache.
+JCacheManager.clear();
+```
+
+```dart
+// Get all keys in the cache.
+List<String> keys = await JCacheManager.getKeys();
+
+// Print a record from the cache.
+JCacheManager.print(userKey);
+
+// And more ...
+```
+
+### JCacheWidget
+
+`JCacheWidget` es un widget de Flutter especializado en la descarga y administración en caché de archivos. Este widget es particularmente útil cuando se trabaja con archivos que se descargan de Internet, como imágenes, documentos, audios, videos, entre otros.
+
+Cuando se utiliza `JCacheWidget`, el widget intentará primero recuperar el archivo de la caché local. Si el archivo no está en la caché o ha expirado (según su tiempo de expiración configurado), `JCacheWidget` descargará el archivo de la URL proporcionada y lo almacenará en la caché para su uso futuro. Todo este proceso es óptimo y automático.
+
+Esto tiene varias ventajas:
+- Mejora la eficiencia de la red al reducir la cantidad de descargas necesarias.
+- Mejora la experiencia del usuario al permitir un acceso más rápido a los archivos ya descargados, incluso cuando el dispositivo está `offline`.
+
+Para `JCacheWidget`, puedes hacer lo siguiente:
+
+```dart
 JCacheWidget(
-  url: 'https://example.com/image.png',
-  expiryInDays: 5,
+  url: userImageUrl,
+  expiryDays: 5,
+  onInitialized: (event, controller) {
+    return const Icon(Icons.image);
+  },
   onDownloading: (event, controller) {
     return const CircularProgressIndicator();
   },
   onCompleted: (event, controller) {
-    File archive = File(event.path!);
+    File archive = File(event.resourcePath!);
     return Image.file(archive);
   },
   onError: (event, controller) {
@@ -51,40 +145,9 @@ JCacheWidget(
   onCancelled: (event, controller) {
     return const Text('Cancelled...');
   },
-  onInitialized: (event, controller) {
-    return const Icon(Icons.image);
-  },
 );
 ```
 
-Ejemplo de cómo almacenar y recuperar datos en la caché:
-
-```dart
-import 'package:jcache/jcache.dart';
-
-// ...
-
-final customKey = 'user-data';
-
-final customData = {
-  'name': 'Jhon',
-  'lastName': 'Doe',
-  'age': 35,
-};
-
-// ...
-
-// Write Data
-await JCacheManager.cacheData(
-  key: customKey,
-  value: customData,
-  expiryInDays: 3,
-);
-
-// Read Data
-final data = await JCacheManager.getCachedData(customKey);
-print(data);
-```
 ## Resumen
 
 **JCache** es excelente en el manejo de la caché. Con su capacidad para almacenar en caché tanto archivos como datos, se convierte en una herramienta indispensable para cualquier desarrollador de Flutter.
