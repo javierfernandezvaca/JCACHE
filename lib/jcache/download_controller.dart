@@ -3,28 +3,33 @@ import 'download_status.dart';
 import 'file_downloader.dart';
 
 class JDownloadController {
-  final JFileDownloader _fileDownloader = JFileDownloader();
+  late JFileDownloader _fileDownloader;
+
   JFileDownloadEvent currentEvent = JFileDownloadEvent(
-    url: '',
+    resourceUrl: '',
     status: JFileDownloadStatus.initialized,
     progress: 0,
     contentLength: 0,
-    path: null,
+    resourcePath: null,
   );
 
   Stream<JFileDownloadEvent> get progressStream =>
       _fileDownloader.progressStream;
 
+  JDownloadController() {
+    _fileDownloader = JFileDownloader();
+  }
+
   Future<String> startDownload(
     String url, {
-    int? expiryInDays,
+    int? expiryDays,
   }) {
     _fileDownloader.progressStream.listen((event) {
       currentEvent = event;
     });
     return _fileDownloader.downloadAndCacheFile(
       url,
-      expiryInDays: expiryInDays,
+      expiryDays: expiryDays,
     );
   }
 

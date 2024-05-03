@@ -8,14 +8,14 @@ class JCacheStreamBuilder extends StatefulWidget {
   final String url;
   final Widget Function(BuildContext context, JFileDownloadEvent event) builder;
   final JDownloadController controller;
-  final int? expiryInDays;
+  final int? expiryDays;
 
   const JCacheStreamBuilder({
     super.key,
     required this.url,
     required this.builder,
     required this.controller,
-    this.expiryInDays,
+    this.expiryDays,
   });
 
   @override
@@ -35,7 +35,7 @@ class JCacheStreamBuilderState extends State<JCacheStreamBuilder> {
     );
     widget.controller.startDownload(
       widget.url,
-      expiryInDays: widget.expiryInDays,
+      expiryDays: widget.expiryDays,
     );
   }
 

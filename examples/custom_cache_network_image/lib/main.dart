@@ -12,34 +12,15 @@ String url = domain + imageResource;
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await JCacheManager.init();
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
 
-  void cacheJsonDataManagement() async {
-    String key = 'user-profile-data';
-    await JCacheManager.cacheData(
-      key: key,
-      value: {
-        'Name': 'Jhon',
-        'LastName': 'Doe',
-        'Age': 35,
-      },
-      expiryInDays: 3,
-    );
-    final data = await JCacheManager.getCachedData(key);
-    debugPrint(data.toString());
-  }
-
   @override
   Widget build(BuildContext context) {
-    // ...
-    // JSON DATA
-    // ...
-    cacheJsonDataManagement();
-    // ...
     return MaterialApp(
       home: Scaffold(
         appBar: AppBar(
@@ -69,7 +50,7 @@ class CustomNetworkCacheImageWidget extends StatelessWidget {
     // ...
     return JCacheWidget(
       url: url,
-      expiryInDays: 5,
+      expiryDays: 5,
       onDownloading: (event, controller) {
         return OnDownloadingWidget(
           event: event,
@@ -123,7 +104,7 @@ class OnCancelledWidget extends StatelessWidget {
       child: Center(
         child: IconButton(
           onPressed: () {
-            controller.startDownload(event.url);
+            controller.startDownload(event.resourceUrl);
           },
           icon: const Icon(
             Icons.replay,
@@ -207,7 +188,7 @@ class OnCompletedWidget extends StatelessWidget {
           height: 250,
           width: 250,
           child: Image.file(
-            File(event.path!),
+            File(event.resourcePath!),
             fit: BoxFit.cover,
           ),
         ),

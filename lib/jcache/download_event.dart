@@ -1,18 +1,17 @@
 import 'download_status.dart';
 
 class JFileDownloadEvent {
-  final String url;
+  final String resourceUrl;
   final JFileDownloadStatus status;
   final double progress;
   final int contentLength;
-  final String? path;
-  // ...
+  final String? resourcePath;
 
   JFileDownloadEvent({
-    required this.url,
+    required this.resourceUrl,
     required this.status,
     required this.progress,
     required this.contentLength,
-    this.path,
+    this.resourcePath,
   });
 }
