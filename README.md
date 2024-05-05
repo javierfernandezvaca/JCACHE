@@ -2,7 +2,9 @@
 
 ## Descripción
 
-**JCache** es un paquete de Flutter que proporciona una solución completa para el almacenamiento en caché de archivos y datos. Permite manejar archivos de cualquier tipo y almacenar datos en formato `JSON`, con la posibilidad de definir un tiempo de expiración para cada elemento en caché.
+**JCache** es un paquete de Flutter que ofrece una solución robusta para el almacenamiento en caché de archivos y datos. Con la capacidad de manejar cualquier tipo de archivo y almacenar datos en formato JSON; también asegura que tus datos estén siempre actualizados y disponibles cuando los necesites.
+
+Además, **JCache** te da un control total sobre el proceso de descarga, permitiéndote iniciar, cancelar y liberar recursos de la caché de manera óptima y automática. Ya sea a nivel de controlador o directamente en la interfaz de usuario, **JCache** facilita la gestión de la caché de archivos facilmente.
 
 ## Características
 
@@ -11,6 +13,7 @@
 - **Expiración de los archivos y datos**: Permite definir un tiempo de expiración personalizado para cada elemento en caché. Después de este tiempo, los elementos se consideran obsoletos y se eliminan de la caché.
 - **JCacheManager**: Esta es la clase administradora de la caché. Se encarga de todas las operaciones de caché, como almacenar, recuperar y eliminar elementos obsoletos.
 - **JCacheWidget**: Este es un widget de Flutter que se encarga de obtener un archivo desde la caché. Si el archivo es local, simplemente lo registra y lo proporciona cuando se solicita. Si el archivo se descarga de Internet, JCacheWidget lo descarga, lo almacena en la caché y luego lo proporciona cuando se solicita.
+- **JDownloadController**: Esta es la clase controladora de las descargas. Puedes iniciar descargas, cancelarlas, y liberar los recursos de la caché cuando ya no se necesiten. Esto te da un control total sobre el proceso de descarga y te permite optimizar el uso de la red y la memoria.
 
 ## Instalación
 
@@ -63,7 +66,7 @@ final userData = {
 
 ## JCacheManager
 
-Esta es una clase integral que proporciona una serie de métodos para administrar eficientemente la caché. Cada elemento en la caché se almacena con una clave única y tiene un tiempo de expiración definido, después del cual se elimina automáticamente. Esto asegura un manejo eficiente de la memoria y evita que los elementos en la caché se vuelvan obsoletos.
+`JCacheManager` es una clase integral que proporciona una serie de métodos para administrar eficientemente la caché. Cada elemento en la caché se almacena con una clave única y tiene un tiempo de expiración definido, después del cual se elimina automáticamente. Esto asegura un manejo eficiente de la memoria y evita que los elementos en la caché se vuelvan obsoletos.
 
 A continuación, se presentan algunas de las operaciones clave que puedes realizar con `JCacheManager`:
 
@@ -196,12 +199,14 @@ await JCacheManager.dispose();
 
 `JCacheWidget` es un widget de Flutter diseñado específicamente para la descarga y administración en caché de archivos. Este widget es especialmente útil cuando se trabaja con archivos que se descargan de Internet, como imágenes, documentos, audios, videos, entre otros.
 
-Cuando se utiliza `JCacheWidget`, el widget intentará primero recuperar el archivo de la caché local. Si el archivo no está en la caché o ha expirado (según su tiempo de expiración configurado), `JCacheWidget` descargará el archivo de la URL proporcionada y lo almacenará en la caché para su uso futuro. Todo este proceso se realiza de manera óptima y automática.
+Cuando se utiliza `JCacheWidget`, el widget intentará primero recuperar el archivo de la caché local. Si el archivo es local, `JCacheWidget` simplemente lo registra en la caché y lo proporciona cuando se solicita. Si el archivo se descarga de Internet, `JCacheWidget` lo descarga, lo almacena en la caché y luego lo proporciona cuando se solicita. Todo este proceso se realiza de manera óptima y automática.
 
 Las ventajas de utilizar `JCacheWidget` incluyen:
 
-- **Eficiencia de la red**: Al reducir la cantidad de descargas necesarias, `JCacheWidget` mejora la eficiencia de la red.
-- **Experiencia del usuario**: Al permitir un acceso más rápido a los archivos ya descargados, incluso cuando el dispositivo está `offline`, `JCacheWidget` mejora la experiencia del usuario.
+- **Eficiencia de la red**: Al reducir la cantidad de descargas necesarias, `JCacheWidget` mejora la eficiencia de la red. Esto puede ser especialmente útil en aplicaciones que manejan una gran cantidad de archivos o datos.
+- **Experiencia del usuario**: Al permitir un acceso más rápido a los archivos ya descargados, incluso cuando el dispositivo está `offline`, `JCacheWidget` mejora la experiencia del usuario. Esto puede resultar en una aplicación más fluida y receptiva.
+- **Control total sobre el proceso de descarga**: Con `JCacheWidget`, tienes un control total sobre el proceso de descarga. Puedes iniciar la descarga, cancelarla, y liberar los recursos de la caché cuando ya no se necesiten.
+- **Flexibilidad**: `JCacheWidget` es muy flexible y puede ser utilizado para una amplia variedad de tareas de almacenamiento en caché. Puedes utilizarlo para almacenar en caché cualquier tipo de archivo, ya sea local o descargado de Internet.
 
 Aquí te dejo un ejemplo de cómo puedes utilizar `JCacheWidget` en tu aplicación:
 
@@ -211,6 +216,7 @@ JCacheWidget(
   url: userImageUrl,
   // Expiry time of the file in days
   expiryDays: 5,
+  // Events:
   onInitialized: (event, controller) {
     // Widget to display during initialization
     return const Icon(Icons.image);
@@ -224,8 +230,8 @@ JCacheWidget(
     File archive = File(event.resourcePath!);
     return Image.file(archive);
   },
-  // Widget to display in case of error
   onError: (event, controller) {
+    // Widget to display in case of error
     return const Text('Error...');
   },  
   onCancelled: (event, controller) {
@@ -235,14 +241,56 @@ JCacheWidget(
 );
 ```
 
+En cada uno de los manejadores de eventos, se pasan dos argumentos: `event` y `controller`.
+
+- `event` es una instancia de `JFileDownloadEvent`, que contiene información sobre el estado actual de la descarga, incluyendo la URL del recurso, el estado de la descarga, el progreso de la descarga y otras más.
+- `controller` es una instancia de `JDownloadController`, que proporciona métodos para controlar el proceso de descarga. Puedes utilizar controller para iniciar la descarga, cancelar la descarga y más.
+
+## JDownloadController
+
+`JDownloadController` es una clase que proporciona métodos para controlar el proceso de descarga. Con `JDownloadController`, puedes iniciar la descarga, cancelarla, y liberar los recursos de la caché cuando ya no se necesiten. Además, `JDownloadController` te permite escuchar los cambios en el proceso de descarga, lo que te permite actualizar la interfaz de usuario en tiempo real a medida que avanza la descarga.
+
+Aquí tienes un ejemplo sencillo de cómo podrías utilizar `JDownloadController` en tu aplicación:
+
+```dart
+// Crear una instancia de JDownloadController
+JDownloadController controller = JDownloadController();
+
+// Iniciar la descarga
+String filePath = await controller.startDownload(
+  // URL del archivo a descargar
+  userImageUrl,
+  // Tiempo de expiración del archivo en días
+  expiryDays: 5,
+);
+
+// Escuchar los cambios en el proceso de descarga
+controller.progressStream.listen((JFileDownloadEvent event) {
+  print('Status: ${event.status}');
+  print('Progress: ${event.progress}');
+  
+  // Cancelar la descarga si el progreso es superior al 50%,
+  // el progreso es un valor entre [0, 1]
+  if (event.progress > 0.5) {
+    controller.cancelDownload();
+  }
+});
+
+// Liberar los recursos de la caché cuando ya no se necesiten
+await controller.dispose();
+```
+
+## Ejemplos
+
+- [`custom_cache_network_image`](https://github.com/javierfernandezvaca/JCACHE/tree/master/examples/custom_cache_network_image) - Este ejemplo demuestra cómo puedes utilizar **JCache** para crear un componente similar al paquete [`Cached network image`](https://pub.dev/packages/cached_network_image) de Flutter. Muestra cómo puedes descargar y almacenar en caché una imágen desde Internet para un acceso rápido y eficiente.
+- [`News`](https://github.com/javierfernandezvaca/JCACHE/tree/master/examples/news) - Este es un ejemplo integral que muestra cómo puedes utilizar JCache en una aplicación de noticias en tiempo real. La aplicación utiliza el servicio de noticias de **https://newsapi.org** para obtener las noticias y las almacena en la caché para un acceso rápido. Además, las imágenes de las noticias se almacenan en caché automáticamente con el widget de caché. Al final, se muestra una lista de todas las noticias e imágenes almacenadas en caché, y la aplicación funciona incluso cuando estás offline.
+
 ## Resumen
 
-**JCache** es excelente en el manejo de la caché. Con su capacidad para almacenar en caché tanto archivos como datos, se convierte en una herramienta indispensable para cualquier desarrollador de Flutter.
+**JCache** es un paquete de Flutter diseñado para el almacenamiento en caché de archivos y datos. Maneja archivos de cualquier tipo y almacena datos en formato `JSON`. Además, permite definir un tiempo de expiración para cada elemento en caché.
 
-Además con su widget especializado `JCacheWidget`, te proporciona una interfaz fácil de usar para descargar y cachear archivos en tu aplicación Flutter. Y con su clase `JCacheManager`, tienes un administrador de caché que se encarga de todas las operaciones de caché, desde almacenar elementos hasta recuperarlos y eliminar los elementos obsoletos.
+Con `JCacheWidget`, puedes descargar y almacenar en caché archivos de manera fácil y eficiente. `JCacheManager` se encarga de todas las operaciones de caché, proporcionando una gestión eficiente de la memoria.
 
-**JCache** no solo mejora la eficiencia de tu aplicación al reducir la necesidad de descargas repetidas, sino que también mejora la experiencia del usuario al proporcionar un acceso más rápido a los datos y archivos que necesita.
+`JDownloadController` te ofrece un control total sobre el proceso de descarga. Puedes iniciar la descarga, cancelarla y liberar los recursos de la caché cuando ya no se necesiten.
 
-Este es un paquete que te ofrece un control completo sobre el almacenamiento en caché en tus aplicaciones Flutter. Es una herramienta poderosa, flexible y fácil de usar que puede llevar tus aplicaciones al siguiente nivel.
-
-Así que, te invitamos a probar `JCache`; seguro que te encantará la facilidad y la flexibilidad que ofrece. ¡Feliz codificación!
+En resumen, JCache mejora la eficiencia de tu aplicación, proporciona un acceso más rápido a los datos y archivos necesarios, y te ofrece un control completo sobre el almacenamiento en caché. ¡Feliz codificación! 😊
