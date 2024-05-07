@@ -9,20 +9,40 @@ import 'download_event.dart';
 import 'download_status.dart';
 
 class JFileDownloader {
-  late StreamController<JFileDownloadEvent> _controller;
+  final StreamController<JFileDownloadEvent> _controller =
+      StreamController<JFileDownloadEvent>.broadcast();
+  int _bytesReceived = 0;
+  int _contentLength = 0;
+  final http.Client _client = http.Client();
   String? _url;
   http.StreamedResponse? _response;
   File? _file;
-  late int _bytesReceived;
-  late int _contentLength;
   StreamSubscription<List<int>>? _streamSubscription;
 
   Stream<JFileDownloadEvent> get progressStream => _controller.stream;
 
   JFileDownloader() {
-    _controller = StreamController<JFileDownloadEvent>.broadcast();
-    _bytesReceived = 0;
-    _contentLength = 0;
+    // ...
+  }
+
+  void emitEvent({
+    required String resourceUrl,
+    required JFileDownloadStatus status,
+    required double progress,
+    required int contentLength,
+    String? resourcePath,
+    String? error,
+  }) {
+    if (!_controller.isClosed) {
+      _controller.sink.add(JFileDownloadEvent(
+        resourceUrl: resourceUrl,
+        status: status,
+        progress: progress,
+        contentLength: contentLength,
+        resourcePath: resourcePath,
+        error: error,
+      ));
+    }
   }
 
   Future<String> downloadAndCacheFile(
@@ -35,49 +55,47 @@ class JFileDownloader {
       url,
       expiryDays: expiryDays,
     );
-    if (cachedFilePath != null) {
-      // Si el archivo ya está en caché, emitir un evento 'completed'
-      if (!_controller.isClosed) {
-        _controller.sink.add(JFileDownloadEvent(
-          resourceUrl: url,
-          status: JFileDownloadStatus.completed,
-          progress: 1.0,
-          contentLength: await File(cachedFilePath).length(),
-          resourcePath: cachedFilePath,
-        ));
-      }
+    if ((cachedFilePath != null) && await File(cachedFilePath).exists()) {
+      // Si el archivo ya está en caché y el archivo en el sistema de
+      // archivos, emitir un evento 'completed'
+      emitEvent(
+        resourceUrl: url,
+        status: JFileDownloadStatus.completed,
+        progress: 1.0,
+        contentLength: await File(cachedFilePath).length(),
+        resourcePath: cachedFilePath,
+        error: null,
+      );
       // Devolver la ruta del archivo en caché
       return cachedFilePath;
     } else {
-      if (!url.startsWith('http')) {
-        // Si la URL es una ruta de archivo local, se almacena en caché
+      if (!url.startsWith('http') && await File(url).exists()) {
+        // Si la URL es una ruta de archivo local y el archivo esta en el
+        // sistema de archivos, se almacena en caché
         await JCacheManager.setFile(
           url: url,
           path: url,
           expiryDays: expiryDays,
         );
-        if (!_controller.isClosed) {
-          // Emitir un evento 'completed'
-          _controller.sink.add(JFileDownloadEvent(
-            resourceUrl: url,
-            status: JFileDownloadStatus.completed,
-            progress: 1.0,
-            contentLength: await File(url).length(),
-            resourcePath: url,
-          ));
-        }
+        // Emitir un evento 'completed'
+        emitEvent(
+          resourceUrl: url,
+          status: JFileDownloadStatus.completed,
+          progress: 1.0,
+          contentLength: await File(url).length(),
+          resourcePath: url,
+          error: null,
+        );
         // Devolver la ruta del archivo local
         return url;
       } else {
         // Hacer la descarga del mismo y almacenarlo en caché
-        final client = http.Client();
         try {
-          _response = await client.send(http.Request('GET', Uri.parse(url)));
+          _response = await _client.send(http.Request('GET', Uri.parse(url)));
           _bytesReceived = 0;
-          final contentLength = _response!.contentLength ?? 0;
-          _contentLength = contentLength;
-          debugPrint('Content Length: $contentLength');
-          final directory = await getTemporaryDirectory();
+          _contentLength = _response!.contentLength ?? 0;
+          // debugPrint('Content Length: $_contentLength');
+          final directory = await getApplicationDocumentsDirectory();
           final path = '${directory.path}/${url.split('/').last}';
           _file = File(path);
           final sink = _file!.openWrite();
@@ -86,15 +104,15 @@ class JFileDownloader {
               _bytesReceived += chunk.length;
               // debugPrint('Bytes received: $_bytesReceived');
               sink.add(chunk);
-              if (!_controller.isClosed) {
-                _controller.sink.add(JFileDownloadEvent(
-                  resourceUrl: url,
-                  status: JFileDownloadStatus.downloading,
-                  progress: _bytesReceived / contentLength,
-                  contentLength: _contentLength,
-                  resourcePath: null,
-                ));
-              }
+              // Emitir un evento 'downloading'
+              emitEvent(
+                resourceUrl: url,
+                status: JFileDownloadStatus.downloading,
+                progress: _bytesReceived / _contentLength,
+                contentLength: _contentLength,
+                resourcePath: null,
+                error: null,
+              );
             },
             onDone: () async {
               await sink.close();
@@ -103,32 +121,82 @@ class JFileDownloader {
                 path: path,
                 expiryDays: expiryDays,
               );
-              if (!_controller.isClosed) {
-                _controller.sink.add(JFileDownloadEvent(
-                  resourceUrl: url,
-                  status: JFileDownloadStatus.completed,
-                  progress: 1.0,
-                  contentLength: _contentLength,
-                  resourcePath: path,
-                ));
-              }
+              // Emitir un evento 'completed'
+              emitEvent(
+                resourceUrl: url,
+                status: JFileDownloadStatus.completed,
+                progress: 1.0,
+                contentLength: _contentLength,
+                resourcePath: path,
+                error: null,
+              );
             },
-            onError: (e) {
-              debugPrint('Error during download: $e');
-              if (!_controller.isClosed) {
-                _controller.sink.addError(JFileDownloadEvent(
+            onError: (e) async {
+              if (e is http.ClientException) {
+                debugPrint('Error during download: ${e.message}');
+                await _streamSubscription?.cancel();
+                if ((_file != null) && await _file!.exists()) {
+                  await _file!.delete();
+                }
+                // Emitir un evento 'error'
+                emitEvent(
                   resourceUrl: url,
                   status: JFileDownloadStatus.error,
-                  progress: _bytesReceived / contentLength,
+                  progress: _bytesReceived / _contentLength,
                   contentLength: _contentLength,
                   resourcePath: null,
-                ));
+                  error: e.message,
+                );
+              } else {
+                debugPrint('Error during download: $e');
+                await _streamSubscription?.cancel();
+                if ((_file != null) && await _file!.exists()) {
+                  await _file!.delete();
+                }
+                // Emitir un evento 'error'
+                emitEvent(
+                  resourceUrl: url,
+                  status: JFileDownloadStatus.error,
+                  progress: _bytesReceived / _contentLength,
+                  contentLength: _contentLength,
+                  resourcePath: null,
+                  error: 'Error during download',
+                );
               }
             },
           );
           return path;
+        } on SocketException catch (e) {
+          debugPrint('Error initiating download: ${e.message}');
+          await _streamSubscription?.cancel();
+          if ((_file != null) && await _file!.exists()) {
+            await _file!.delete();
+          }
+          // Emitir un evento 'error'
+          emitEvent(
+            resourceUrl: url,
+            status: JFileDownloadStatus.error,
+            progress: 0,
+            contentLength: _contentLength,
+            resourcePath: null,
+            error: e.message,
+          );
+          return '';
         } catch (e) {
-          debugPrint('Error initiating download: $e');
+          debugPrint('Error initiating download');
+          await _streamSubscription?.cancel();
+          if ((_file != null) && await _file!.exists()) {
+            await _file!.delete();
+          }
+          // Emitir un evento 'error'
+          emitEvent(
+            resourceUrl: url,
+            status: JFileDownloadStatus.error,
+            progress: 0,
+            contentLength: _contentLength,
+            resourcePath: null,
+            error: 'Error initiating download',
+          );
           return '';
         }
       }
@@ -137,19 +205,22 @@ class JFileDownloader {
 
   Future<void> cancelDownload() async {
     await _streamSubscription?.cancel();
-    await _file?.delete();
-    if (!_controller.isClosed) {
-      _controller.sink.add(JFileDownloadEvent(
-        resourceUrl: _url ?? '',
-        status: JFileDownloadStatus.cancelled,
-        progress: _bytesReceived / (_response!.contentLength ?? 0),
-        contentLength: _contentLength,
-        resourcePath: null,
-      ));
+    if ((_file != null) && await _file!.exists()) {
+      await _file!.delete();
     }
+    // Emitir un evento 'cancelled'
+    emitEvent(
+      resourceUrl: _url ?? '',
+      status: JFileDownloadStatus.cancelled,
+      progress: _bytesReceived / (_response!.contentLength ?? 1),
+      contentLength: _contentLength,
+      resourcePath: null,
+      error: null,
+    );
   }
 
   Future<void> dispose() async {
+    _client.close();
     await _streamSubscription?.cancel();
     await _controller.close();
   }

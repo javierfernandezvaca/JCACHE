@@ -6,6 +6,7 @@ class JFileDownloadEvent {
   final double progress;
   final int contentLength;
   final String? resourcePath;
+  final String? error;
 
   JFileDownloadEvent({
     required this.resourceUrl,
@@ -13,5 +14,6 @@ class JFileDownloadEvent {
     required this.progress,
     required this.contentLength,
     this.resourcePath,
+    this.error,
   });
 }

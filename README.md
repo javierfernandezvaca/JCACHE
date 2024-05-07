@@ -253,30 +253,30 @@ En cada uno de los manejadores de eventos, se pasan dos argumentos: `event` y `c
 Aquí tienes un ejemplo sencillo de cómo podrías utilizar `JDownloadController` en tu aplicación:
 
 ```dart
-// Crear una instancia de JDownloadController
+// Create an instance of JDownloadController
 JDownloadController controller = JDownloadController();
 
-// Iniciar la descarga
+// Start the download
 String filePath = await controller.startDownload(
-  // URL del archivo a descargar
+  // URL of the file to download
   userImageUrl,
-  // Tiempo de expiración del archivo en días
+  // Expiry time of the file in days
   expiryDays: 5,
 );
 
-// Escuchar los cambios en el proceso de descarga
+// Listen to changes in the download process
 controller.progressStream.listen((JFileDownloadEvent event) {
   print('Status: ${event.status}');
   print('Progress: ${event.progress}');
   
-  // Cancelar la descarga si el progreso es superior al 50%,
-  // el progreso es un valor entre [0, 1]
+  // Cancel the download if progress is more than 50%,
+  // progress is a value between [0, 1]
   if (event.progress > 0.5) {
     controller.cancelDownload();
   }
 });
 
-// Liberar los recursos de la caché cuando ya no se necesiten
+// Release the cache resources when no longer needed
 await controller.dispose();
 ```
 

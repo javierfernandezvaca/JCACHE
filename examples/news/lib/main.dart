@@ -78,36 +78,39 @@ class NewsPageState extends State<NewsPage> {
     loadNews();
   }
 
+  getNews(Map<String, dynamic>? newsJson) {
+    newsArticles.clear();
+    if (newsJson != null) {
+      final articles = newsJson['articles'] as List;
+      for (var a in articles) {
+        final article = Article.fromJson(a);
+        if (article.title != '[Removed]' && (article.urlToImage != null)) {
+          newsArticles.add(article);
+        }
+      }
+    }
+  }
+
   Future<void> loadNews() async {
     if (_connectionStatus == ConnectivityResult.none) {
+      // ...
       // Offline
+      // ...
       final cachedNewsJson = await JCacheManager.getData(newsUrl);
-      if (cachedNewsJson != null) {
-        final list = (cachedNewsJson['articles'] as List)
-            .map((n) => Article.fromJson(n))
-            .toList();
-        newsArticles.clear();
-        newsArticles.addAll(list);
-      }
+      getNews(cachedNewsJson);
     } else {
+      // ...
       // Online
+      // ...
       final response = await http.get(Uri.parse(newsUrl));
       if (response.statusCode == 200) {
         final newsJson = jsonDecode(response.body);
-        // ...
         await JCacheManager.setData(
           key: newsUrl,
           value: newsJson,
           expiryDays: 1,
         );
-        // ...
-        if (newsJson != null) {
-          final list =
-              (newsJson['articles'] as List).map((n) => Article.fromJson(n));
-          newsArticles.clear();
-          newsArticles.addAll(list);
-        }
-        // ...
+        getNews(newsJson);
       }
     }
     setState(() {});
@@ -155,16 +158,32 @@ class NewsPageState extends State<NewsPage> {
         onRefresh: () async {
           loadNews();
         },
-        child: ListView.builder(
-          addAutomaticKeepAlives: true,
-          itemCount: newsArticles.length,
-          itemBuilder: (context, index) {
-            final newsArticle = newsArticles[index];
-            return NewsArticleWidget(
-              newsArticle: newsArticle,
-            );
-          },
-        ),
+        child: newsArticles.isNotEmpty
+            ? ListView.builder(
+                addAutomaticKeepAlives: true,
+                itemCount: newsArticles.length,
+                itemBuilder: (context, index) {
+                  final newsArticle = newsArticles[index];
+                  return NewsArticleWidget(
+                    newsArticle: newsArticle,
+                  );
+                },
+              )
+            : Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: <Widget>[
+                    const Text('No news available at the moment'),
+                    const SizedBox(height: 10),
+                    ElevatedButton(
+                      onPressed: () {
+                        loadNews();
+                      },
+                      child: const Text('Try Again'),
+                    ),
+                  ],
+                ),
+              ),
       ),
     );
   }

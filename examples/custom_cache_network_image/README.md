@@ -1,16 +1,9 @@
-# custom_cache_network_image
+# Custom Cache Network Image
 
-A new Flutter project.
+Este es un ejemplo de una aplicación que carga 3 imagenes de Internet y las muestra al usuario. La aplicación muestra todo el proceso de descarga y cacheo de las imagenes en caché.
 
-## Getting Started
+## Características
 
-This project is a starting point for a Flutter application.
-
-A few resources to get you started if this is your first Flutter project:
-
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
-
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+- Carga las imagenes de Internet.
+- Muestra las imagenes al usuario.
+- Almacena las imagenes en caché para su uso `offline`.
