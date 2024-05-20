@@ -1,7 +1,5 @@
 # JCACHE
 
-## Descripción
-
 **JCache** es un paquete de Flutter que ofrece una solución robusta para el almacenamiento en caché de archivos y datos. Con la capacidad de manejar cualquier tipo de archivo y almacenar datos en formato JSON; también asegura que tus datos estén siempre actualizados y disponibles cuando los necesites.
 
 Además, **JCache** te da un control total sobre el proceso de descarga, permitiéndote iniciar, cancelar y liberar recursos de la caché de manera óptima y automática. Ya sea a nivel de controlador o directamente en la interfaz de usuario, **JCache** facilita la gestión de la caché de archivos facilmente.
@@ -282,7 +280,7 @@ await controller.dispose();
 
 ## Ejemplos
 
-- [`custom_cache_network_image`](https://github.com/javierfernandezvaca/JCACHE/tree/master/examples/custom_cache_network_image) - Este ejemplo demuestra cómo puedes utilizar **JCache** para crear un componente similar al paquete [`Cached network image`](https://pub.dev/packages/cached_network_image) de Flutter. Muestra cómo puedes descargar y almacenar en caché una imágen desde Internet para un acceso rápido y eficiente.
+- [`custom_cache_network_image`](https://github.com/javierfernandezvaca/JCACHE/tree/master/examples/custom_cache_network_image) - Este ejemplo demuestra cómo puedes utilizar **JCache** para crear un componente similar al paquete [`cached_network_image`](https://pub.dev/packages/cached_network_image) de Flutter. Muestra cómo puedes descargar y almacenar en caché una imágen desde Internet para un acceso rápido y eficiente.
 - [`News`](https://github.com/javierfernandezvaca/JCACHE/tree/master/examples/news) - Este es un ejemplo integral que muestra cómo puedes utilizar JCache en una aplicación de noticias en tiempo real. La aplicación utiliza el servicio de noticias de **https://newsapi.org** para obtener las noticias y las almacena en la caché para un acceso rápido. Además, las imágenes de las noticias se almacenan en caché automáticamente con el widget de caché. Al final, se muestra una lista de todas las noticias e imágenes almacenadas en caché, y la aplicación funciona incluso cuando estás offline.
 
 ## Resumen
