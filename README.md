@@ -4,6 +4,30 @@
 
 Además, **JCache** te da un control total sobre el proceso de descarga, permitiéndote iniciar, cancelar y liberar recursos de la caché de manera óptima y automática. Ya sea a nivel de controlador o directamente en la interfaz de usuario, **JCache** facilita la gestión de la caché de archivos facilmente.
 
+- [Características](#características)
+- [Instalación](#instalación)
+- [Uso](#uso)
+  - [JCacheManager](#jcachemanager)
+    - [Almacenar Datos en la Caché](#almacenar-datos-en-la-caché)
+    - [Recuperar Datos de la Caché](#recuperar-datos-de-la-caché)
+    - [Almacenar la Ruta del Archivo en la Caché](#almacenar-la-ruta-del-archivo-en-la-caché)
+    - [Recuperar la Ruta del Archivo de la Caché](#recuperar-la-ruta-del-archivo-de-la-caché)
+    - [Escuchar Cambios en un Elemento](#escuchar-cambios-en-un-elemento)
+    - [Eliminar un Elemento de la Caché](#eliminar-un-elemento-de-la-caché)
+    - [Eliminar todos los Elementos de la Caché](#eliminar-todos-los-elementos-de-la-caché)
+    - [Obtener Todas las Claves en la Caché](#obtener-todas-las-claves-en-la-caché)
+    - [Imprimir un Elemento de la Caché](#imprimir-un-elemento-de-la-caché)
+    - [Consultar el Número de Elementos en la Caché](#consultar-el-número-de-elementos-en-la-caché)
+    - [Verificar si la Caché está Vacía](#verificar-si-la-caché-está-vacía)
+    - [Verificar si la Caché No está Vacía](#verificar-si-la-caché-no-está-vacía)
+    - [Comprobar si la Caché Contiene un Elemento](#comprobar-si-la-caché-contiene-un-elemento)
+    - [Eliminar los Datos y Archivos Expirados](#eliminar-los-datos-y-archivos-expirados)
+    - [Liberar los Recursos de la Caché](#liberar-los-recursos-de-la-caché)
+  - [JCacheWidget](#jcachewidget)
+  - [JDownloadController](#jdownloadcontroller)
+- [Ejemplos](#ejemplos)
+- [Resumen](#resumen)
+
 ## Características
 
 - **Almacenamiento en caché de archivos**: JCache puede almacenar en caché archivos de cualquier tipo. Los archivos pueden ser locales o descargados de Internet.
@@ -122,9 +146,9 @@ Para eliminar un elemento de la caché, puedes utilizar el método `remove`. Est
 JCacheManager.remove(userKey);
 ```
 
-#### Limpiar Todos los Elementos de la Caché
+#### Eliminar todos los Elementos de la Caché
 
-Para limpiar todos los elementos de la caché, puedes utilizar el método `clear`. Este método elimina todos los elementos de la caché:
+Para limpiar la caché, puedes utilizar el método `clear`. Este método elimina todos los elementos de la caché:
 
 ```dart
 JCacheManager.clear();
