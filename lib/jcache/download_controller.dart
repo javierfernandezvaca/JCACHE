@@ -24,7 +24,7 @@ class JDownloadController {
     String url, {
     int? expiryDays,
   }) {
-    _fileDownloader.progressStream.listen((event) {
+    _fileDownloader.progressStream.listen((JFileDownloadEvent event) {
       currentEvent = event;
     });
     return _fileDownloader.downloadAndCacheFile(

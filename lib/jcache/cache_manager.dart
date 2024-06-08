@@ -45,6 +45,22 @@ class JCacheManager {
     }
   }
 
+  // ...
+
+  //
+  // Verifica si los datos han expirado:
+  //
+  // Los datos se consideran expirados si han pasado más días desde su
+  // último acceso que el número de días especificado en `expiryDays`
+  // cuando se almacenaron los datos.
+  static bool _isExpired(JCacheManagerData record) {
+    return record.updatedAt
+        .add(Duration(days: record.expiryDays))
+        .isBefore(DateTime.now());
+  }
+
+  // ...
+
   /// Devuelve el número de elementos en la caché.
   ///
   /// Ejemplo:
@@ -117,17 +133,6 @@ class JCacheManager {
         })
         .where((data) => data != null)
         .cast<JCacheManagerData>();
-  }
-
-  /// Verifica si los datos han expirado.
-  ///
-  /// Los datos se consideran expirados si han pasado más días desde su
-  /// último acceso que el número de días especificado en `expiryDays`
-  /// cuando se almacenaron los datos.
-  static bool _isExpired(JCacheManagerData record) {
-    return record.updatedAt
-        .add(Duration(days: record.expiryDays))
-        .isBefore(DateTime.now());
   }
 
   /// Devuelve una lista de todas las claves en la caché.

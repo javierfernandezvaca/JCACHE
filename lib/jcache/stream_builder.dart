@@ -29,7 +29,7 @@ class JCacheStreamBuilderState extends State<JCacheStreamBuilder> {
   void initState() {
     super.initState();
     _subscription = widget.controller.progressStream.listen(
-      (event) {
+      (JFileDownloadEvent event) {
         setState(() {});
       },
     );
