@@ -2,7 +2,7 @@
 
 **JCache** es un paquete de Flutter que ofrece una solución robusta para el almacenamiento en caché de archivos y datos. Con la capacidad de manejar cualquier tipo de archivo y almacenar datos en formato JSON; también asegura que tus datos estén siempre actualizados y disponibles cuando los necesites.
 
-Además, **JCache** te da un control total sobre el proceso de descarga, permitiéndote iniciar, cancelar y liberar recursos de la caché de manera óptima y automática. Ya sea a nivel de controlador o directamente en la interfaz de usuario, **JCache** facilita la gestión de la caché de archivos facilmente.
+Además, **JCache** da un control total sobre el proceso de descarga, permitiéndo iniciar, cancelar y liberar recursos de la caché de manera óptima y automática. Ya sea a nivel de controlador o directamente en la interfaz de usuario, **JCache** facilita la gestión de la caché de archivos facilmente.
 
 - [Características](#características)
 - [Instalación](#instalación)
@@ -32,10 +32,10 @@ Además, **JCache** te da un control total sobre el proceso de descarga, permiti
 
 - **Almacenamiento en caché de archivos**: JCache puede almacenar en caché archivos de cualquier tipo. Los archivos pueden ser locales o descargados de Internet.
 - **Almacenamiento en caché de datos**: Además de los archivos, JCache también puede almacenar en caché datos en formato `JSON`.
-- **Expiración de los archivos y datos**: Permite definir un tiempo de expiración personalizado para cada elemento en caché. Después de este tiempo, los elementos se consideran obsoletos y se eliminan de la caché.
-- **JCacheManager**: Esta es la clase administradora de la caché. Se encarga de todas las operaciones de caché, como almacenar, recuperar y eliminar elementos obsoletos.
-- **JCacheWidget**: Este es un widget de Flutter que se encarga de obtener un archivo desde la caché. Si el archivo es local, simplemente lo registra y lo proporciona cuando se solicita. Si el archivo se descarga de Internet, JCacheWidget lo descarga, lo almacena en la caché y luego lo proporciona cuando se solicita.
-- **JDownloadController**: Esta es la clase controladora de las descargas. Puedes iniciar descargas, cancelarlas, y liberar los recursos de la caché cuando ya no se necesiten. Esto te da un control total sobre el proceso de descarga y te permite optimizar el uso de la red y la memoria.
+- **Expiración de los archivos y datos**: JCache permite definir un tiempo de expiración personalizado para cada elemento en caché. Después de este tiempo, los elementos se consideran obsoletos y se eliminan de la caché.
+- **JCacheManager**: JCache cuenta con esta clase administradora de la caché que se encarga de todas las operaciones de caché, como almacenar, recuperar y eliminar elementos obsoletos.
+- **JCacheWidget**: JCache cuenta con este widget de Flutter que se encarga de obtener un archivo desde la caché; si el archivo es local, simplemente lo registra y lo proporciona cuando se solicita; si el archivo se descarga de Internet, JCacheWidget lo descarga, lo almacena en la caché y luego lo proporciona cuando se solicita.
+- **JDownloadController**: JCache cuenta con esta clase controladora de las descargas que puedes iniciar descargas, cancelarlas, y liberar los recursos de la caché cuando ya no se necesiten. Esto proporciona un control total sobre el proceso de descarga y permite optimizar el uso de la red y la memoria.
 
 ## Instalación
 
@@ -48,8 +48,7 @@ dependencies:
 
 ## Uso
 
-En Flutter, la gestión de la caché es una parte esencial para garantizar un 
-rendimiento óptimo de la aplicación y una experiencia de usuario fluida. `JCacheManager` y `JCacheWidget` son dos formas eficaces de administrar los elementos en la caché.
+La gestión de la caché es una parte esencial para garantizar un rendimiento óptimo de la aplicación y una experiencia de usuario fluida. `JCacheManager` y `JCacheWidget` son dos formas eficaces de administrar los elementos en la caché.
 
 Para utilizar este paquete después de haberlo instalado, puedes hacerlo de la siguiente manera:
 
@@ -69,7 +68,7 @@ await JCacheManager.init();
 
 ```dart
 /// Unique key for the user data
-final userKey = 'user';
+var userKey = 'user';
 
 /// URL of the user's image
 final userImageUrl = 'https://example.com/image.png';
@@ -88,7 +87,7 @@ final userData = {
 
 ## JCacheManager
 
-`JCacheManager` es una clase integral que proporciona una serie de métodos para administrar eficientemente la caché. Cada elemento en la caché se almacena con una clave única y tiene un tiempo de expiración definido, después del cual se elimina automáticamente. Esto asegura un manejo eficiente de la memoria y evita que los elementos en la caché se vuelvan obsoletos.
+`JCacheManager` es una clase integral que proporciona una serie de métodos para administrar eficientemente la caché. Cada elemento en la caché se almacena con una clave única (con longitud máxima de hasta 255 caracteres) y tiene un tiempo de expiración definido, después del cual se elimina automáticamente. Esto asegura un manejo eficiente de la memoria y evita que los elementos en la caché se vuelvan obsoletos.
 
 A continuación, se presentan algunas de las operaciones clave que puedes realizar con `JCacheManager`:
 
@@ -130,9 +129,7 @@ Para escuchar los cambios en un elemento específico, puedes utilizar el método
 
 ```dart
 Stream<JCacheManagerData> userStream = JCacheManager.watch(userKey);
-````
-
-```dart
+// ...
 userStream.listen((event) {
   debugPrint('Data changed: ${event.data}');
 });
@@ -161,6 +158,7 @@ Para obtener todas las claves en la caché, puedes utilizar el método `getKeys`
 ```dart
 List<String> keys = await JCacheManager.getKeys();
 ```
+
 #### Imprimir un Elemento de la Caché
 
 Para imprimir un elemento de la caché, puedes utilizar el método `print`. Este método imprime el elemento asociado con la clave proporcionada:
@@ -255,7 +253,7 @@ JCacheWidget(
   onError: (event, controller) {
     // Widget to display in case of error
     return const Text('Error...');
-  },  
+  },
   onCancelled: (event, controller) {
     // Widget to display if the download is cancelled
     return const Text('Cancelled...');
@@ -290,7 +288,7 @@ String filePath = await controller.startDownload(
 controller.progressStream.listen((JFileDownloadEvent event) {
   print('Status: ${event.status}');
   print('Progress: ${event.progress}');
-  
+
   // Cancel the download if progress is more than 50%,
   // progress is a value between [0, 1]
   if (event.progress > 0.5) {
@@ -304,8 +302,8 @@ await controller.dispose();
 
 ## Ejemplos
 
-- [`Cache Network Image`](https://github.com/javierfernandezvaca/JCACHE/tree/master/examples/cached_network_image) - Este ejemplo demuestra cómo puedes utilizar **JCache** para crear un componente similar al paquete [`cached_network_image`](https://pub.dev/packages/cached_network_image) de Flutter. Muestra cómo puedes descargar y almacenar en caché imagenes desde Internet para un acceso rápido y eficiente.
-- [`News`](https://github.com/javierfernandezvaca/JCACHE/tree/master/examples/news) - Este es un ejemplo integral que muestra cómo puedes utilizar JCache en una aplicación de noticias en tiempo real. La aplicación utiliza el servicio de noticias de **https://newsapi.org** para obtener las noticias y las almacena en la caché para un acceso rápido. Además, las imágenes de las noticias se almacenan en caché automáticamente con el widget de caché. Al final, se muestra una lista de todas las noticias e imágenes almacenadas en caché, y la aplicación funciona incluso cuando estás offline.
+- [`Cached Network Image`](https://github.com/javierfernandezvaca/JCACHE/tree/master/examples/cached_network_image) - Este ejemplo demuestra cómo puedes utilizar **JCache** para crear un componente similar al paquete [`cached_network_image`](https://pub.dev/packages/cached_network_image) de Flutter. Muestra cómo puedes descargar y almacenar en caché imagenes desde Internet para un acceso rápido y eficiente.
+- [`News`](https://github.com/javierfernandezvaca/JCACHE/tree/master/examples/news) - Este es un ejemplo integral que muestra cómo puedes utilizar **JCache** en una aplicación de noticias en tiempo real. La aplicación utiliza el servicio de noticias de **https://newsapi.org** para obtener las noticias y las almacena en la caché para un acceso rápido. Además, las imágenes de las noticias se almacenan en caché automáticamente con el widget de caché. Al final, se muestra una lista de todas las noticias e imágenes almacenadas en caché, y la aplicación funciona incluso en modo offline.
 
 ## Resumen
 
