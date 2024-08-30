@@ -43,7 +43,10 @@ Para instalar JCache, añade la librería a tu archivo `pubspec.yaml`:
 
 ```yaml
 dependencies:
-  jcache:
+  jsm:
+    git:
+      url: https://github.com/javierfernandezvaca/JCACHE
+      ref: master
 ```
 
 ## Uso
