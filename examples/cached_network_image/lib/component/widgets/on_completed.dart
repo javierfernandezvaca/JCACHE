@@ -8,14 +8,10 @@ import 'base_widget.dart';
 
 class OnCompleted extends BaseWidget {
   const OnCompleted({
-    Key? key,
-    required JFileDownloadEvent event,
-    required JDownloadController controller,
-  }) : super(
-          key: key,
-          event: event,
-          controller: controller,
-        );
+    super.key,
+    required super.event,
+    required super.controller,
+  });
 
   @override
   Widget buildChild(BuildContext context) {

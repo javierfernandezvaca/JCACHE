@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:jcache/jcache.dart';
 
+import 'widgets/fade_in_widget.dart';
 import 'widgets/on_cancelled.dart';
 import 'widgets/on_completed.dart';
 import 'widgets/on_downloading.dart';
@@ -12,10 +13,10 @@ import 'widgets/on_initialized.dart';
 ///
 class CachedNetworkImage extends StatelessWidget {
   const CachedNetworkImage({
-    Key? key,
+    super.key,
     required this.imageUrl,
     this.expiryDays,
-  }) : super(key: key);
+  });
 
   final String imageUrl;
   final int? expiryDays;
@@ -38,9 +39,11 @@ class CachedNetworkImage extends StatelessWidget {
         );
       },
       onCompleted: (event, controller) {
-        return OnCompleted(
-          event: event,
-          controller: controller,
+        return FadeInWidget(
+          child: OnCompleted(
+            event: event,
+            controller: controller,
+          ),
         );
       },
       onError: (event, controller) {

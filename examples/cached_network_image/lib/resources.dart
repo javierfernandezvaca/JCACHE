@@ -1,9 +1,8 @@
+// const imageLandscapeWide = 'https://via.placeholder.com/1280x720';
+// const imageSquare = 'https://via.placeholder.com/720x720';
+// const imagePortraitWide = 'https://via.placeholder.com/720x1280';
+// const imageLandscape = 'https://via.placeholder.com/720x480';
 const defaultImage = 'https://via.placeholder.com/1280x720';
-
-// final imageLandscapeWide = 'https://via.placeholder.com/1280x720';
-// final imageSquare = 'https://via.placeholder.com/720x720';
-// final imagePortraitWide = 'https://via.placeholder.com/720x1280';
-// final imageLandscape = 'https://via.placeholder.com/720x480';
 
 // ...
 // DOMAIN

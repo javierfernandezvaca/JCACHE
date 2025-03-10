@@ -1,12 +1,16 @@
-# News
+# news
 
-Este es un ejemplo de una **aplicación de noticias** que carga noticias de una API y las muestra al usuario. La aplicación también tiene en cuenta la conectividad a Internet y almacena las noticias en caché para su uso `offline`.
+A new Flutter project.
 
-La aplicación utiliza la API de [`NewsAPI`](https://newsapi.org/) para obtener las noticias.
+## Getting Started
 
-## Características
+This project is a starting point for a Flutter application.
 
-- Carga noticias de la API de [`NewsAPI`](https://newsapi.org/).
-- Muestra una lista de noticias al usuario.
-- Almacena las noticias y sus recursos en caché para su uso `offline`.
-- Actualiza las noticias cada vez que cambia el estado de la conectividad.
+A few resources to get you started if this is your first Flutter project:
+
+- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
+- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+
+For help getting started with Flutter development, view the
+[online documentation](https://docs.flutter.dev/), which offers tutorials,
+samples, guidance on mobile development, and a full API reference.

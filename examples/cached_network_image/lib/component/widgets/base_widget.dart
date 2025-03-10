@@ -10,11 +10,11 @@ abstract class BaseWidget extends StatelessWidget {
   final Color? color;
 
   const BaseWidget({
-    Key? key,
+    super.key,
     required this.event,
     required this.controller,
     this.color,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

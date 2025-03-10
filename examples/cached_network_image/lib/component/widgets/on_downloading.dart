@@ -1,19 +1,14 @@
 import 'package:flutter/material.dart';
-import 'package:jcache/jcache.dart';
 
 import 'base_widget.dart';
 
 class OnDownloading extends BaseWidget {
   const OnDownloading({
-    Key? key,
-    required JFileDownloadEvent event,
-    required JDownloadController controller,
+    super.key,
+    required super.event,
+    required super.controller,
     this.iconColor,
-  }) : super(
-          key: key,
-          event: event,
-          controller: controller,
-        );
+  });
 
   final Color? iconColor;
 

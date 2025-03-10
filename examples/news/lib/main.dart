@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:developer';
 import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -17,7 +18,7 @@ void main() async {
 }
 
 class NewsApp extends StatelessWidget {
-  const NewsApp({Key? key}) : super(key: key);
+  const NewsApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -29,7 +30,7 @@ class NewsApp extends StatelessWidget {
 }
 
 class NewsPage extends StatefulWidget {
-  const NewsPage({Key? key}) : super(key: key);
+  const NewsPage({super.key});
 
   @override
   NewsPageState createState() => NewsPageState();
@@ -37,10 +38,22 @@ class NewsPage extends StatefulWidget {
 
 class NewsPageState extends State<NewsPage> {
   final Connectivity _connectivity = Connectivity();
-  ConnectivityResult _connectionStatus = ConnectivityResult.none;
-  late StreamSubscription<ConnectivityResult> _connectivitySubscription;
+  List<ConnectivityResult> _connectionStatus = [];
+  // late StreamSubscription<ConnectivityResult> _connectivitySubscription;
+  late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
 
   final newsArticles = <Article>[];
+
+  void _onKeys() async {
+    final keys = await JCacheManager.getKeys();
+    debugger();
+    for (int i = 0; i < keys.length; i++) {
+      var key = keys[i];
+      final data = await JCacheManager.getData(key);
+      JCacheManager.print(key);
+      debugPrint(data.toString());
+    }
+  }
 
   @override
   void initState() {
@@ -48,6 +61,9 @@ class NewsPageState extends State<NewsPage> {
     initConnectivity();
     _connectivitySubscription =
         _connectivity.onConnectivityChanged.listen(_updateConnectionStatus);
+    // ...
+    _onKeys();
+    // ...
   }
 
   @override
@@ -57,7 +73,7 @@ class NewsPageState extends State<NewsPage> {
   }
 
   Future<void> initConnectivity() async {
-    late ConnectivityResult result;
+    late List<ConnectivityResult> result;
     try {
       result = await _connectivity.checkConnectivity();
     } catch (e) {
@@ -70,7 +86,7 @@ class NewsPageState extends State<NewsPage> {
     return _updateConnectionStatus(result);
   }
 
-  Future<void> _updateConnectionStatus(ConnectivityResult result) async {
+  Future<void> _updateConnectionStatus(List<ConnectivityResult> result) async {
     debugPrint('Connectivity changed: $_connectionStatus');
     setState(() {
       _connectionStatus = result;
@@ -92,7 +108,7 @@ class NewsPageState extends State<NewsPage> {
   }
 
   Future<void> loadNews() async {
-    if (_connectionStatus == ConnectivityResult.none) {
+    if (_connectionStatus.contains(ConnectivityResult.none)) {
       // ...
       // Offline
       // ...
@@ -119,12 +135,18 @@ class NewsPageState extends State<NewsPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('News'),
+        title: const Text(
+          'News',
+          style: TextStyle(
+            color: Colors.white,
+          ),
+        ),
         backgroundColor: Colors.black,
         actions: [
           Builder(builder: (context) {
-            bool offline = _connectionStatus == ConnectivityResult.none;
+            bool offline = _connectionStatus.contains(ConnectivityResult.none);
             return Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: Center(
@@ -159,15 +181,20 @@ class NewsPageState extends State<NewsPage> {
           loadNews();
         },
         child: newsArticles.isNotEmpty
-            ? ListView.builder(
-                addAutomaticKeepAlives: true,
-                itemCount: newsArticles.length,
-                itemBuilder: (context, index) {
-                  final newsArticle = newsArticles[index];
-                  return NewsArticleWidget(
-                    newsArticle: newsArticle,
-                  );
-                },
+            ? Padding(
+                padding: const EdgeInsets.all(8.0),
+                child: ListView.builder(
+                  addAutomaticKeepAlives: true,
+                  itemCount: newsArticles.length,
+                  itemBuilder: (context, index) {
+                    final newsArticle = newsArticles[index];
+                    return Card(
+                      child: NewsArticleWidget(
+                        newsArticle: newsArticle,
+                      ),
+                    );
+                  },
+                ),
               )
             : Center(
                 child: Column(
@@ -191,9 +218,9 @@ class NewsPageState extends State<NewsPage> {
 
 class NewsArticleWidget extends StatelessWidget {
   const NewsArticleWidget({
-    Key? key,
+    super.key,
     required this.newsArticle,
-  }) : super(key: key);
+  });
 
   final Article newsArticle;
 
@@ -203,7 +230,7 @@ class NewsArticleWidget extends StatelessWidget {
       children: [
         Container(
           width: double.infinity,
-          color: Colors.black,
+          color: Colors.white,
           child: Padding(
             padding: const EdgeInsets.symmetric(
               horizontal: 16,
@@ -216,7 +243,7 @@ class NewsArticleWidget extends StatelessWidget {
                   newsArticle.source.name,
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: Colors.black,
                   ),
                 ),
                 Text(
@@ -224,7 +251,7 @@ class NewsArticleWidget extends StatelessWidget {
                       .format(newsArticle.publishedAt.toLocal()),
                   style: const TextStyle(
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: Colors.black,
                   ),
                 ),
               ],

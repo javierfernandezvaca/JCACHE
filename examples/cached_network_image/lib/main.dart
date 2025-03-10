@@ -23,10 +23,20 @@ class MyApp extends StatelessWidget {
 }
 
 class MyAppPage extends StatelessWidget {
-  const MyAppPage({Key? key}) : super(key: key);
+  const MyAppPage({super.key});
+
+  void _onKeys() async {
+    final keys = await JCacheManager.getKeys();
+    for (var key in keys) {
+      debugPrint(key);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    // ...
+    _onKeys();
+    // ...
     return Scaffold(
       appBar: AppBar(
         title: const Text('Cached Network Image'),

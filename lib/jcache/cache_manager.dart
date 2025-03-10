@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:crypto/crypto.dart';
 
 import 'cache_manager_data.dart';
 
@@ -20,6 +21,15 @@ class JCacheManager {
   static const _defaultExpiryDays = 7;
   static const String _defaultResourceUrl = 'resourceUrl';
   static const String _defaultResourcePath = 'resourcePath';
+
+  /// Esta función genera una clave única utilizando el algoritmo SHA-256,
+  /// lo que permite convertir cualquier URL o cadena larga en una clave
+  /// de longitud fija.
+  static String generateHashKey(String input) {
+    final bytes = utf8.encode(input);
+    final digest = sha256.convert(bytes);
+    return digest.toString();
+  }
 
   /// Inicializa JCacheManager para su correcto uso.
   ///
@@ -98,7 +108,8 @@ class JCacheManager {
   /// ```dart
   /// bool isMember = JCacheManager.contains('myData');
   /// ```
-  static bool contains(String key) => _cacheBox.containsKey(key);
+  static bool contains(String key) =>
+      _cacheBox.containsKey(generateHashKey(key));
 
   /// Observa los cambios en el elemento con la clave dada.
   ///
@@ -117,18 +128,31 @@ class JCacheManager {
   /// });
   /// ```
   static Stream<JCacheManagerData> watch(String key) {
+    // return _cacheBox
+    //     .watch(key: key)
+    //     .map((BoxEvent event) {
+    //       // Obtiene el valor del evento como una cadena JSON
+    //       final jsonString = event.value;
+    //       if (jsonString != null) {
+    //         // Deserializa la cadena JSON a JCacheManagerData
+    //         final e = JCacheManagerData.fromJson(jsonDecode(jsonString));
+    //         // Devuelve JCacheManagerData
+    //         return e;
+    //       }
+    //       // Si jsonString es null, devuelve null
+    //       return null;
+    //     })
+    //     .where((data) => data != null)
+    //     .cast<JCacheManagerData>();
+    final hashKey = generateHashKey(key);
     return _cacheBox
-        .watch(key: key)
+        .watch(key: hashKey)
         .map((BoxEvent event) {
-          // Obtiene el valor del evento como una cadena JSON
           final jsonString = event.value;
           if (jsonString != null) {
-            // Deserializa la cadena JSON a JCacheManagerData
             final e = JCacheManagerData.fromJson(jsonDecode(jsonString));
-            // Devuelve JCacheManagerData
             return e;
           }
-          // Si jsonString es null, devuelve null
           return null;
         })
         .where((data) => data != null)
@@ -179,21 +203,36 @@ class JCacheManager {
     required Map<String, dynamic> value,
     int? expiryDays,
   }) async {
-    if (key.length <= 255) {
-      final datetime = DateTime.now();
-      await _cacheBox.put(
-        key,
-        jsonEncode(JCacheManagerData(
-          data: value,
-          expiryDays: expiryDays ?? _defaultExpiryDays,
-          dataType: JCacheManagerDataType.data,
-          createdAt: datetime,
-          updatedAt: datetime,
-        ).toJson()),
-      );
-    } else {
-      debugPrint('KEY exceeds 255 character limit: $key');
-    }
+    // if (key.length <= 255) {
+    //   final datetime = DateTime.now();
+    //   await _cacheBox.put(
+    //     key,
+    //     jsonEncode(JCacheManagerData(
+    //       data: value,
+    //       expiryDays: expiryDays ?? _defaultExpiryDays,
+    //       dataType: JCacheManagerDataType.data,
+    //       createdAt: datetime,
+    //       updatedAt: datetime,
+    //     ).toJson()),
+    //   );
+    // } else {
+    //   debugPrint('KEY exceeds 255 character limit: $key');
+    // }
+    final hashKey = generateHashKey(key);
+    final datetime = DateTime.now();
+    await _cacheBox.put(
+      hashKey,
+      jsonEncode(JCacheManagerData(
+        data: {
+          'originalKey': key,
+          'data': value,
+        },
+        expiryDays: expiryDays ?? _defaultExpiryDays,
+        dataType: JCacheManagerDataType.data,
+        createdAt: datetime,
+        updatedAt: datetime,
+      ).toJson()),
+    );
   }
 
   /// Recupera datos desde la caché.
@@ -218,20 +257,34 @@ class JCacheManager {
     String key, {
     int? expiryDays,
   }) async {
-    final jsonString = _cacheBox.get(key);
+    // final jsonString = _cacheBox.get(key);
+    // if (jsonString != null) {
+    //   final information = JCacheManagerData.fromJson(jsonDecode(jsonString));
+    //   if (!_isExpired(information)) {
+    //     // Actualiza la fecha del último acceso
+    //     information.updatedAt = DateTime.now();
+    //     // Actualiza los días en lo que expirarán los datos
+    //     information.expiryDays = expiryDays ?? _defaultExpiryDays;
+    //     await _cacheBox.put(key, jsonEncode(information.toJson()));
+    //     // Devuelve los datos JSON
+    //     return information.data;
+    //   } else {
+    //     // Los datos han expirado, elimínalos
+    //     await _cacheBox.delete(key);
+    //   }
+    // }
+    // return null;
+    final hashKey = generateHashKey(key);
+    final jsonString = _cacheBox.get(hashKey);
     if (jsonString != null) {
       final information = JCacheManagerData.fromJson(jsonDecode(jsonString));
       if (!_isExpired(information)) {
-        // Actualiza la fecha del último acceso
         information.updatedAt = DateTime.now();
-        // Actualiza los días en lo que expirarán los datos
         information.expiryDays = expiryDays ?? _defaultExpiryDays;
-        await _cacheBox.put(key, jsonEncode(information.toJson()));
-        // Devuelve los datos JSON
+        await _cacheBox.put(hashKey, jsonEncode(information.toJson()));
         return information.data;
       } else {
-        // Los datos han expirado, elimínalos
-        await _cacheBox.delete(key);
+        await _cacheBox.delete(hashKey);
       }
     }
     return null;
@@ -265,24 +318,22 @@ class JCacheManager {
     required String path,
     int? expiryDays,
   }) async {
-    if (url.length <= 255) {
-      final datetime = DateTime.now();
-      await _cacheBox.put(
-        url,
-        jsonEncode(JCacheManagerData(
-          data: {
-            _defaultResourceUrl: url,
-            _defaultResourcePath: path,
-          },
-          expiryDays: expiryDays ?? _defaultExpiryDays,
-          dataType: JCacheManagerDataType.file,
-          createdAt: datetime,
-          updatedAt: datetime,
-        ).toJson()),
-      );
-    } else {
-      debugPrint('URL exceeds 255 character limit: $url');
-    }
+    final hashKey = generateHashKey(url);
+    final datetime = DateTime.now();
+    await _cacheBox.put(
+      hashKey,
+      jsonEncode(JCacheManagerData(
+        data: {
+          'originalUrl': url, // Almacena la URL original
+          _defaultResourceUrl: url,
+          _defaultResourcePath: path,
+        },
+        expiryDays: expiryDays ?? _defaultExpiryDays,
+        dataType: JCacheManagerDataType.file,
+        createdAt: datetime,
+        updatedAt: datetime,
+      ).toJson()),
+    );
   }
 
   /// Recupera archivos desde la caché.
@@ -307,27 +358,22 @@ class JCacheManager {
     String url, {
     int? expiryDays,
   }) async {
-    final jsonString = _cacheBox.get(url);
+    final hashKey = generateHashKey(url);
+    final jsonString = _cacheBox.get(hashKey);
     if (jsonString != null) {
       final archive = JCacheManagerData.fromJson(jsonDecode(jsonString));
       if (!_isExpired(archive)) {
-        // Actualiza la fecha del último acceso
         archive.updatedAt = DateTime.now();
-        // Actualiza los días en lo que expirará el archivo
         archive.expiryDays = expiryDays ?? _defaultExpiryDays;
-        await _cacheBox.put(url, jsonEncode(archive.toJson()));
-        // Devuelve la ruta del archivo
+        await _cacheBox.put(hashKey, jsonEncode(archive.toJson()));
         return archive.data[_defaultResourcePath];
       } else {
-        // El archivo ha expirado, elimínalo
-        await _cacheBox.delete(url);
+        await _cacheBox.delete(hashKey);
         final file = File(archive.data[_defaultResourcePath]);
         if (await file.exists()) {
           try {
             await file.delete();
           } catch (e) {
-            // Se registra el error y se continua con la ejecución
-            // del programa
             debugPrint('Error deleting file: $e');
           }
         }
@@ -357,8 +403,35 @@ class JCacheManager {
   /// ```dart
   /// await JCacheManager.garbageCollector();
   /// ```
+  // static Future<void> garbageCollector() async {
+  //   for (final key in _cacheBox.keys) {
+  //     final jsonString = _cacheBox.get(key);
+  //     if (jsonString != null) {
+  //       final value = JCacheManagerData.fromJson(jsonDecode(jsonString));
+  //       if (_isExpired(value)) {
+  //         await remove(key);
+  //         if (value.dataType == JCacheManagerDataType.file) {
+  //           final file = File(value.data[_defaultResourcePath]);
+  //           if (await file.exists()) {
+  //             try {
+  //               await file.delete();
+  //             } catch (e) {
+  //               // Se registra el error y se continua con la ejecución
+  //               // del programa
+  //               debugPrint('Error deleting file: $e');
+  //             }
+  //           }
+  //         }
+  //       }
+  //     }
+  //   }
+  // }
   static Future<void> garbageCollector() async {
-    for (final key in _cacheBox.keys) {
+    // Obtener la lista de las claves para evitar problemas de
+    // modificación concurrente
+    final keys = _cacheBox.keys.toList();
+    // Iteración asíncrona para evitar bloqueos de UI
+    await Future.forEach<dynamic>(keys, (key) async {
       final jsonString = _cacheBox.get(key);
       if (jsonString != null) {
         final value = JCacheManagerData.fromJson(jsonDecode(jsonString));
@@ -378,7 +451,7 @@ class JCacheManager {
           }
         }
       }
-    }
+    });
   }
 
   /// Libera los recursos del uso de la cache.
