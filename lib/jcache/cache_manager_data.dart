@@ -1,6 +1,7 @@
 enum JCacheManagerDataType { data, file }
 
 class JCacheManagerData {
+  String originalKey;
   Map<String, dynamic> data;
   JCacheManagerDataType dataType;
   int expiryDays;
@@ -8,6 +9,7 @@ class JCacheManagerData {
   DateTime updatedAt;
 
   JCacheManagerData({
+    required this.originalKey,
     required this.data,
     required this.dataType,
     required this.expiryDays,
@@ -17,18 +19,20 @@ class JCacheManagerData {
 
   static JCacheManagerData fromJson(Map<String, dynamic> jsonData) {
     return JCacheManagerData(
-      data: jsonData['data'],
+      originalKey: jsonData['originalKey'] as String,
+      data: jsonData['data'] as Map<String, dynamic>,
       dataType: jsonData['dataType'] == 'data'
           ? JCacheManagerDataType.data
           : JCacheManagerDataType.file,
-      expiryDays: jsonData['expiryDays'],
-      createdAt: DateTime.parse(jsonData['createdAt']),
-      updatedAt: DateTime.parse(jsonData['updatedAt']),
+      expiryDays: jsonData['expiryDays'] as int,
+      createdAt: DateTime.parse(jsonData['createdAt'] as String),
+      updatedAt: DateTime.parse(jsonData['updatedAt'] as String),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      'originalKey': originalKey,
       'data': data,
       'dataType': dataType == JCacheManagerDataType.data ? 'data' : 'file',
       'expiryDays': expiryDays,
