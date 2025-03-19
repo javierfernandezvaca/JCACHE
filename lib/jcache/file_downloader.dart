@@ -51,10 +51,7 @@ class JFileDownloader {
   }) async {
     _url = url;
     // Verificar si el archivo ya está en caché
-    String? cachedFilePath = await JCacheManager.getFile(
-      url,
-      expiryDays: expiryDays,
-    );
+    String? cachedFilePath = await JCacheManager.getFile(url);
     if ((cachedFilePath != null) && await File(cachedFilePath).exists()) {
       // Si el archivo ya está en caché y el archivo en el sistema de
       // archivos, emitir un evento 'completed'
@@ -75,7 +72,6 @@ class JFileDownloader {
         await JCacheManager.setFile(
           url: url,
           path: url,
-          expiryDays: expiryDays,
         );
         // Emitir un evento 'completed'
         emitEvent(
@@ -119,7 +115,6 @@ class JFileDownloader {
               await JCacheManager.setFile(
                 url: url,
                 path: path,
-                expiryDays: expiryDays,
               );
               // Emitir un evento 'completed'
               emitEvent(

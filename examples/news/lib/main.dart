@@ -124,7 +124,7 @@ class NewsPageState extends State<NewsPage> {
         await JCacheManager.setData(
           key: newsUrl,
           value: newsJson,
-          expiryDays: 1,
+          expiryDuration: const Duration(days: 1),
         );
         getNews(newsJson);
       }

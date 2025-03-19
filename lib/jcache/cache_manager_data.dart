@@ -4,7 +4,7 @@ class JCacheManagerData {
   String originalKey;
   Map<String, dynamic> data;
   JCacheManagerDataType dataType;
-  int expiryDays;
+  Duration expiryDuration;
   DateTime createdAt;
   DateTime updatedAt;
 
@@ -12,7 +12,7 @@ class JCacheManagerData {
     required this.originalKey,
     required this.data,
     required this.dataType,
-    required this.expiryDays,
+    required this.expiryDuration,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -24,7 +24,9 @@ class JCacheManagerData {
       dataType: jsonData['dataType'] == 'data'
           ? JCacheManagerDataType.data
           : JCacheManagerDataType.file,
-      expiryDays: jsonData['expiryDays'] as int,
+      expiryDuration: Duration(
+        milliseconds: jsonData['expiryDuration'],
+      ),
       createdAt: DateTime.parse(jsonData['createdAt'] as String),
       updatedAt: DateTime.parse(jsonData['updatedAt'] as String),
     );
@@ -35,7 +37,7 @@ class JCacheManagerData {
       'originalKey': originalKey,
       'data': data,
       'dataType': dataType == JCacheManagerDataType.data ? 'data' : 'file',
-      'expiryDays': expiryDays,
+      'expiryDuration': expiryDuration.inMilliseconds,
       'createdAt': createdAt.toString(),
       'updatedAt': updatedAt.toString(),
     };

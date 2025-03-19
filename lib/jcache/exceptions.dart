@@ -1,5 +1,18 @@
 // Excepciones personalizadas
 
+/// Excepción lanzada cuando ocurre un error de inicialización de la cache.
+class CacheNotInitializedException implements Exception {
+  final String message;
+  final dynamic originalException;
+
+  CacheNotInitializedException(this.message, {this.originalException});
+
+  @override
+  String toString() {
+    return 'CacheNotInitializedException: $message${originalException != null ? ' (Original Exception: $originalException)' : ''}';
+  }
+}
+
 /// Excepción lanzada cuando ocurre un error de serialización o
 /// deserialización JSON.
 class JsonCacheException implements Exception {

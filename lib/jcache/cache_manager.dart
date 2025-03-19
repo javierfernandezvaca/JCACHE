@@ -9,172 +9,320 @@ import 'package:crypto/crypto.dart';
 
 import 'cache_manager_data.dart';
 
-/// Clase `JCacheManager` para la gestión de caché en Flutter.
+/// **Clase `JCacheManager` para la gestión de caché en Flutter.**
 ///
-/// Esta clase proporciona una interfaz para almacenar y recuperar datos y
-/// archivos en caché utilizando `Hive` para la persistencia.
+/// Proporciona una interfaz completa para almacenar y recuperar eficientemente
+/// datos y archivos en caché dentro de aplicaciones Flutter, utilizando
+/// `Hive` para una persistencia rápida y confiable en el dispositivo.
 ///
-/// Características:
+/// **Características Principales:**
 ///
-/// - Persistencia: Utiliza `Hive` para almacenar la caché de forma
-///     persistente en el dispositivo.
-/// - Soporte para Datos y Archivos: Permite cachear tanto datos serializables
-///     (como JSON) como rutas a archivos locales.
-/// - Expiración: Implementa un sistema de expiración basado en tiempo,
-///     eliminando automáticamente los datos y archivos que han excedido su
-///     tiempo de vida útil.
-/// - Claves Hash: Utiliza SHA-256 para generar claves hash únicas a partir
-///     de las claves proporcionadas por el usuario, garantizando unicidad y
-///     seguridad básica.
-/// - Recolección de Basura: Incluye un recolector de basura para eliminar
-///     periódicamente los elementos expirados y liberar espacio.
-/// - Observación de Cambios: Ofrece la capacidad de observar cambios en
-///     elementos específicos de la caché mediante `Stream`.
-/// - Manejo de Errores: Implementa manejo de errores robusto para
-///     operaciones de serialización/deserialización JSON.
+/// - **Persistencia Robusta:**  Utiliza `Hive`, una base de datos NoSQL ligera,
+///     para almacenar la caché de manera persistente en el almacenamiento local
+///     del dispositivo, asegurando que los datos persistan entre sesiones de la
+///     aplicación.
+/// - **Soporte Versátil para Datos y Archivos:**  Permite cachear tanto datos
+///     serializables (como objetos JSON, Maps, Listas, Strings, etc.) mediante
+///     `setData` y `getData`, como rutas a archivos locales (imágenes, documentos,
+///     etc.) utilizando `setFile` y `getFile`.
+/// - **Sistema de Expiración Inteligente:** Implementa un mecanismo de expiración
+///     basado en tiempo configurable. Los datos y archivos en caché se eliminan
+///     automáticamente después de un período definido (`expiryDuration`), ayudando a
+///     mantener la caché limpia y optimizada en términos de espacio.
+/// - **Generación Segura de Claves Hash:** Emplea el algoritmo SHA-256 para
+///     generar claves hash únicas a partir de las claves proporcionadas por el
+///     usuario. Esto garantiza la unicidad de las claves dentro de la caché y
+///     proporciona una ofuscación básica de las claves originales.
+/// - **Recolector de Basura Automático:** Incluye un recolector de basura
+///     (`garbageCollector`) que se ejecuta periódicamente (en la inicialización
+///     y puede ser llamado manualmente) para eliminar elementos expirados y
+///     archivos asociados, liberando espacio de almacenamiento y manteniendo
+///     la caché eficiente.
+/// - **Observación Reactiva de Cambios:** Ofrece la capacidad de observar cambios
+///     en elementos específicos de la caché a través de `Stream`s. La función
+///     `watch` permite a los componentes de la aplicación reaccionar en tiempo
+///     real a las modificaciones o eliminaciones de datos en caché.
+/// - **Manejo Excepcional de Errores:** Incorpora un manejo de errores robusto
+///     con excepciones personalizadas (`JsonCacheException`, `FileCacheException`)
+///     para operaciones críticas como la serialización/deserialización JSON y
+///     operaciones del sistema de archivos, facilitando la detección y gestión
+///     de problemas.
+///
+/// **Uso Principal:**
+///
+/// `JCacheManager` es ideal para mejorar el rendimiento de aplicaciones Flutter
+/// que requieren acceso frecuente a datos o archivos que no cambian
+/// constantemente. Almacenar en caché respuestas de APIs, configuraciones,
+/// imágenes descargadas u otros recursos puede reducir significativamente la
+/// latencia, el uso de ancho de banda y mejorar la experiencia del usuario.
+///
+/// **Ejemplo de Inicialización:**
+///
+/// ```dart
+/// void main() async {
+///   WidgetsFlutterBinding.ensureInitialized();
+///   await JCacheManager.init(
+///     cacheName: 'miCachePersonalizada',  // Nombre para cache (opcional)
+///     defaultExpiryDuration: Duration(days: 15), // Duración de expiración (opcional)
+///   );
+///   runApp(const MyApp());
+/// }
+/// ```
 class JCacheManager {
   static const String _defaultCacheName = 'J-CACHE-MANAGER-BOX';
   static const String _defaultResourceUrl = 'resourceUrl';
   static const String _defaultResourcePath = 'resourcePath';
-  static int _defaultExpiryDays = 7;
+  static Duration _defaultExpiryDuration = const Duration(days: 7);
   static bool _initialized = false;
   static late Box<String> _cacheBox;
 
-  /// Genera una clave hash única utilizando el algoritmo SHA-256.
+  static void _checkInitialized() {
+    if (!_initialized) {
+      throw CacheNotInitializedException(
+        'JCacheManager must be initialized with init() before any operations.',
+      );
+    }
+  }
+
+  /// **Genera una clave hash única utilizando el algoritmo SHA-256.**
   ///
-  /// Convierte cualquier cadena de entrada en una clave de longitud fija,
-  /// útil para indexar en la caché y para ofuscar las claves originales.
+  /// Convierte una cadena de entrada arbitraria en una clave hash de longitud
+  /// fija utilizando el algoritmo criptográfico SHA-256. Esta función es
+  /// fundamental para asegurar la unicidad de las claves dentro de la caché
+  /// y para ofuscar las claves originales proporcionadas por el usuario,
+  /// añadiendo una capa básica de seguridad.
   ///
-  /// Parámetros:
-  ///   - `input`: La cadena de entrada para generar el hash.
+  /// **Parámetros:**
   ///
-  /// Devoluciones:
-  ///   - Una cadena representando el hash SHA-256 de la entrada.
+  /// - `input`: `String` - La cadena de texto de entrada para la cual se generará
+  ///     el hash SHA-256.
+  ///
+  /// **Devoluciones:**
+  ///
+  /// - `String` - Una cadena de texto que representa el hash SHA-256 de la
+  ///     cadena de entrada. Esta cadena tiene una longitud fija y es adecuada
+  ///     para ser utilizada como clave en la caché.
+  ///
+  /// **Ejemplo:**
+  ///
+  /// ```dart
+  /// String claveOriginal = 'miClaveSecreta';
+  /// String claveHash = JCacheManager._generateHashKey(claveOriginal);
+  /// print('Clave Original: $claveOriginal');
+  /// print('Clave Hash: $claveHash');
+  /// ```
   static String _generateHashKey(String input) {
     final bytes = utf8.encode(input);
     final digest = sha256.convert(bytes);
     return digest.toString();
   }
 
-  /// Inicializa `JCacheManager` para su uso.
+  /// **Inicializa `JCacheManager` para su correcto funcionamiento.**
   ///
-  /// Debe ser llamado una vez al inicio de la aplicación, antes de utilizar
-  /// cualquier otra función de `JCacheManager`.
+  /// Este método estático debe ser invocado **una sola vez** al inicio de la
+  /// aplicación, preferiblemente antes de utilizar cualquier otra función de
+  /// `JCacheManager`. Se encarga de configurar el entorno de caché, incluyendo:
   ///
-  /// Inicializa `Hive`, abre la caja de caché y ejecuta el recolector de basura
-  /// inicial.
+  /// - Inicialización de `Hive`: Configura el directorio de almacenamiento para
+  ///     `Hive`, la base de datos utilizada para la persistencia de la caché.
+  /// - Apertura de la Caja de Caché: Abre (o crea si no existe) la caja de `Hive`
+  ///     donde se almacenarán los datos de la caché. Se puede personalizar el
+  ///     nombre de la caja.
+  /// - Configuración de Expiración por Defecto: Permite establecer la duración de
+  ///     expiración por defecto para los elementos de la caché. Si no se
+  ///     especifica, se utiliza un valor por defecto predefinido.
+  /// - Ejecución del Recolector de Basura Inicial: Lanza el recolector de basura
+  ///     (`garbageCollector`) para limpiar cualquier entrada expirada que pudiera
+  ///     existir de sesiones anteriores.
   ///
-  /// Parámetros opcionales:
-  ///   - `cacheName`: (Opcional) Nombre personalizado para la caja de caché de Hive.
-  ///     Si no se proporciona, se usa el nombre por defecto: `_defaultCacheName`.
-  ///   - `defaultExpiryDays`: (Opcional) Días de expiración por defecto para la caché.
-  ///     Si no se proporciona, se usa el valor por defecto: `_defaultExpiryDays = 7`.
+  /// **Parámetros Opcionales:**
   ///
-  /// Ejemplo:
+  /// - `cacheName`: `String?` (Opcional) - Nombre personalizado para la caja de
+  ///     caché de `Hive`. Si no se proporciona, se utiliza el nombre por defecto
+  ///     `_defaultCacheName`.
+  /// - `defaultExpiryDuration`: `Duration?` (Opcional) - Duración que se utilizará
+  ///     como tiempo de expiración por defecto para los elementos de la caché. Si
+  ///     no se proporciona, se usa el valor por defecto `_defaultExpiryDuration = 7 días`.
+  ///
+  /// **Ejemplo de Uso:**
+  ///
   /// ```dart
   /// void main() async {
   ///   WidgetsFlutterBinding.ensureInitialized();
-  ///   // Inicialización con nombre de caché y días de expiración personalizados
   ///   await JCacheManager.init(
   ///     cacheName: 'miCachePersonalizada',
-  ///     defaultExpiryDays: 30,
+  ///     defaultExpiryDuration: Duration(days: 30),
   ///   );
   ///   runApp(const MyApp());
   /// }
   /// ```
   static Future<void> init({
     String? cacheName,
-    int? defaultExpiryDays,
+    Duration? defaultExpiryDuration,
   }) async {
     if (!_initialized) {
       final directory = await getApplicationDocumentsDirectory();
       Hive.init(directory.path);
       final boxName = cacheName ?? _defaultCacheName;
       _cacheBox = await Hive.openBox<String>(boxName);
-      if (defaultExpiryDays != null) {
-        _defaultExpiryDays = defaultExpiryDays;
+      if (defaultExpiryDuration != null) {
+        if (defaultExpiryDuration.isNegative) {
+          throw ArgumentError(
+              'defaultExpiryDuration cannot be negative. It must be a positive value.');
+        }
+        _defaultExpiryDuration = defaultExpiryDuration;
       }
       _initialized = true;
       garbageCollector();
     }
   }
 
-  // ...
-
-  /// Verifica si un registro de caché ha expirado.
+  /// **Verifica si un registro de caché ha expirado.**
   ///
-  /// Compara la fecha de última actualización del registro con la fecha actual,
-  /// considerando el tiempo de expiración definido en `expiryDays`.
+  /// Compara la fecha de última actualización (`updatedAt`) del registro
+  /// `JCacheManagerData` con la fecha y hora actual (`DateTime.now()`).
+  /// Un registro se considera expirado si el tiempo transcurrido desde su
+  /// última actualización excede el tiempo de vida útil definido en `expiryDuration`.
   ///
-  /// Parámetros:
-  ///   - `record`: El registro `JCacheManagerData` a verificar.
+  /// **Parámetros:**
   ///
-  /// Devoluciones:
-  ///   - `true` si el registro ha expirado, `false` en caso contrario.
+  /// - `record`: `JCacheManagerData` - El registro de caché que se desea verificar
+  ///     si ha expirado. Debe ser una instancia de `JCacheManagerData`.
+  ///
+  /// **Devoluciones:**
+  ///
+  /// - `bool` - Retorna `true` si el registro ha expirado, es decir, si su tiempo
+  ///     de vida útil ha sido excedido. Retorna `false` en caso contrario,
+  ///     indicando que el registro aún es válido.
+  ///
+  /// **Uso Interno:**
+  ///
+  /// Este método está diseñado para ser utilizado internamente por `JCacheManager`
+  /// para la gestión de la expiración de los elementos en caché. No está pensado
+  /// para ser llamado directamente desde fuera de la clase.
   static bool _isExpired(JCacheManagerData record) {
-    return record.updatedAt
-        .add(Duration(days: record.expiryDays))
-        .isBefore(DateTime.now());
+    return record.updatedAt.add(record.expiryDuration).isBefore(DateTime.now());
   }
 
-  // ...
-
-  /// Devuelve el número de elementos en la caché.
+  /// **Devuelve el número total de elementos almacenados actualmente en la caché.**
   ///
-  /// Ejemplo:
+  /// Esta propiedad getter proporciona acceso al número de entradas que existen
+  /// en la caja de caché de `Hive` en el momento de la consulta. Incluye tanto
+  /// datos como rutas de archivos que han sido almacenados.
+  ///
+  /// **Ejemplo de Uso:**
+  ///
   /// ```dart
   /// int cantidadItems = JCacheManager.length;
+  /// print('La caché contiene $cantidadItems elementos.');
   /// ```
-  static int get length => _cacheBox.length;
+  static int get length {
+    _checkInitialized();
+    return _cacheBox.length;
+  }
 
-  /// Devuelve `true` si la caché está vacía.
+  /// **Verifica si la caché está vacía.**
   ///
-  /// Ejemplo:
+  /// Esta propiedad getter retorna un valor booleano que indica si la caja de
+  /// caché de `Hive` no contiene ningún elemento en su interior.
+  ///
+  /// **Devoluciones:**
+  ///
+  /// - `bool` - Retorna `true` si la caché no contiene elementos, `false` si
+  ///     contiene al menos un elemento.
+  ///
+  /// **Ejemplo de Uso:**
+  ///
   /// ```dart
   /// bool cacheVacia = JCacheManager.isEmpty;
+  /// if (cacheVacia) {
+  ///   print('La caché está vacía.');
+  /// } else {
+  ///   print('La caché contiene elementos.');
+  /// }
   /// ```
-  static bool get isEmpty => _cacheBox.isEmpty;
+  static bool get isEmpty {
+    _checkInitialized();
+    return _cacheBox.isEmpty;
+  }
 
-  /// Devuelve `true` si la caché no está vacía.
+  /// **Verifica si la caché NO está vacía.**
   ///
-  /// Ejemplo:
+  /// Esta propiedad getter retorna un valor booleano que indica si la caja de
+  /// caché de `Hive` contiene al menos un elemento. Es la negación de `isEmpty`.
+  ///
+  /// **Devoluciones:**
+  ///
+  /// - `bool` - Retorna `true` si la caché contiene al menos un elemento, `false`
+  ///     si está vacía.
+  ///
+  /// **Ejemplo de Uso:**
+  ///
   /// ```dart
   /// bool cacheNoVacia = JCacheManager.isNotEmpty;
+  /// if (cacheNoVacia) {
+  ///   print('La caché contiene elementos.');
+  /// } else {
+  ///   print('La caché está vacía.');
+  /// }
   /// ```
-  static bool get isNotEmpty => _cacheBox.isNotEmpty;
+  static bool get isNotEmpty {
+    _checkInitialized();
+    return _cacheBox.isNotEmpty;
+  }
 
-  /// Comprueba si la caché contiene un elemento con la clave especificada.
+  /// **Comprueba si la caché contiene un elemento asociado a la clave especificada.**
   ///
-  /// Utiliza la clave hash generada para buscar en la caja de caché.
+  /// Utiliza la clave proporcionada para generar su clave hash correspondiente
+  /// y luego verifica si esta clave hash existe dentro de la caja de caché de
+  /// `Hive`. Este método no recupera el elemento, solo verifica su existencia.
   ///
-  /// Parámetros:
-  ///   - `key`: La clave del elemento a buscar.
+  /// **Parámetros:**
   ///
-  /// Devoluciones:
-  ///   - `true` si la caché contiene un elemento con la clave, `false` en caso contrario.
+  /// - `key`: `String` - La clave del elemento cuya existencia se desea comprobar.
   ///
-  /// Ejemplo:
+  /// **Devoluciones:**
+  ///
+  /// - `bool` - Retorna `true` si la caché contiene un elemento con la clave
+  ///     especificada, `false` en caso contrario.
+  ///
+  /// **Ejemplo de Uso:**
+  ///
   /// ```dart
   /// bool existeElemento = JCacheManager.contains('miClave');
+  /// if (existeElemento) {
+  ///   print('La caché contiene un elemento con la clave "miClave".');
+  /// } else {
+  ///   print('La caché NO contiene un elemento con la clave "miClave".');
+  /// }
   /// ```
-  static bool contains(String key) =>
-      _cacheBox.containsKey(_generateHashKey(key));
+  static bool contains(String key) {
+    _checkInitialized();
+    return _cacheBox.containsKey(_generateHashKey(key));
+  }
 
-  /// Observa los cambios en un elemento específico de la caché.
+  /// **Observa los cambios en un elemento específico de la caché mediante un `Stream`.**
   ///
-  /// Devuelve un `Stream` que emite eventos cada vez que el elemento
-  /// con la clave especificada se modifica en la caché.
+  /// Devuelve un `Stream` que emite eventos (`JCacheManagerData?`) cada vez que
+  /// el elemento asociado a la clave especificada se modifica o elimina de la
+  /// caché. Esto permite una observación reactiva de los cambios en la caché.
   ///
-  /// Parámetros:
-  ///   - `key`: La clave del elemento a observar.
+  /// **Parámetros:**
   ///
-  /// Devoluciones:
-  ///   - Un `Stream<JCacheManagerData>` que emite eventos `JCacheManagerData`
-  ///     cuando el elemento cambia. Emite `null` si el elemento es eliminado.
+  /// - `key`: `String` - La clave del elemento de caché cuyos cambios se desean observar.
   ///
-  /// Ejemplo:
+  /// **Devoluciones:**
+  ///
+  /// - `Stream<JCacheManagerData?>` - Un `Stream` que emite eventos de tipo
+  ///     `JCacheManagerData?`. Cada evento representa un cambio en el elemento
+  ///     de caché:
+  ///     - Emite un objeto `JCacheManagerData` cuando el elemento se modifica.
+  ///     - Emite `null` cuando el elemento es eliminado de la caché.
+  ///
+  /// **Ejemplo de Uso:**
+  ///
   /// ```dart
-  /// Stream<JCacheManagerData> streamDeDatos = JCacheManager.watch('miClave');
+  /// Stream<JCacheManagerData?> streamDeDatos = JCacheManager.watch('miClave');
   /// streamDeDatos.listen((evento) {
   ///   if (evento != null) {
   ///     print('Dato cambiado: ${evento.data}');
@@ -183,33 +331,66 @@ class JCacheManager {
   ///   }
   /// });
   /// ```
+  ///
+  /// **Nota:**
+  ///
+  /// El `Stream` permanece activo y emitirá eventos para futuros cambios en el
+  /// elemento de caché hasta que se cancele la suscripción al `Stream`.
   static Stream<JCacheManagerData?> watch(String key) {
+    _checkInitialized();
     final hashKey = _generateHashKey(key);
-    // return _cacheBox.watch(key: hashKey).map((BoxEvent event) {
     return _cacheBox.watch(key: hashKey).map((BoxEvent event) {
       final jsonString = event.value;
       if (jsonString == null) {
         return null;
       } else {
-        final e = JCacheManagerData.fromJson(jsonDecode(jsonString));
-        return e;
+        try {
+          final e = JCacheManagerData.fromJson(jsonDecode(jsonString));
+          return e;
+        } on FormatException catch (e) {
+          debugPrint(
+              'JCacheManager: [watch] Error decoding JSON for key: "$key" in stream. FormatException: $e');
+          return null;
+        } catch (e) {
+          debugPrint(
+              'JCacheManager: [watch] Unexpected error processing stream event for key: "$key". Error: $e');
+          return null;
+        }
       }
     });
   }
 
-  /// Devuelve una lista de todas las claves hash en la caché.
+  /// **Devuelve una lista de las claves originales (no hash) de todos los elementos en la caché.**
   ///
-  /// Útil para depuración y operaciones de gestión manual de la caché.
+  /// Recorre todas las claves hash almacenadas en la caja de caché de `Hive`,
+  /// deserializa cada entrada para obtener el registro `JCacheManagerData`
+  /// asociado y extrae la clave original (`originalKey`) de cada registro.
   ///
-  /// Devoluciones:
-  ///   - Una `List<String>` conteniendo todas las claves hash de la caché.
+  /// **Devoluciones:**
   ///
-  /// Ejemplo:
+  /// - `Future<List<String>>` - Un `Future` que se completa con una lista de
+  ///     cadenas de texto. Cada cadena en la lista representa una clave original
+  ///     de un elemento actualmente presente en la caché.
+  ///
+  /// **Ejemplo de Uso:**
+  ///
   /// ```dart
   /// List<String> claves = await JCacheManager.getKeys();
+  /// if (claves.isNotEmpty) {
+  ///   print('Claves en la caché: ${claves.join(', ')}');
+  /// } else {
+  ///   print('La caché no contiene elementos.');
+  /// }
   /// ```
+  ///
+  /// **Nota:**
+  ///
+  /// Este método realiza operaciones de lectura y deserialización para cada
+  /// elemento en la caché. Para cachés muy grandes, podría tener un impacto
+  /// en el rendimiento, por lo que se recomienda usar con moderación,
+  /// principalmente para propósitos de depuración o gestión manual.
   static Future<List<String>> getKeys() async {
-    // return _cacheBox.keys.toList().map((e) => e as String).toList();
+    _checkInitialized();
     List<String> originalKeys = [];
     for (var hashKey in _cacheBox.keys) {
       final jsonString = _cacheBox.get(hashKey as String);
@@ -218,44 +399,71 @@ class JCacheManager {
           final record = JCacheManagerData.fromJson(jsonDecode(jsonString));
           originalKeys.add(record.originalKey);
         } catch (e) {
-          debugPrint('Error decoding JSON for key: $hashKey in getKeys: $e');
+          debugPrint(
+              'JCacheManager: [getKeys] Corrupt entry detected for hashKey: $hashKey. Error: $e');
         }
       }
     }
     return originalKeys;
   }
 
-  /// Almacena datos en la caché.
+  /// **Almacena datos serializables en la caché.**
   ///
-  /// Serializa el valor a JSON y lo guarda en la caché asociado a la clave
-  /// especificada. Los datos se eliminan automáticamente después de
-  /// `expiryDays` días.
+  /// Serializa el valor proporcionado a formato JSON y lo almacena en la caché
+  /// asociado a la clave especificada. Los datos se almacenan de forma
+  /// persistente utilizando `Hive` y se eliminarán automáticamente de la
+  /// caché después de un período definido por `expiryDuration`.
   ///
-  /// Parámetros:
-  ///   - `key`: La clave única para identificar los datos.
-  ///   - `value`: El dato a almacenar **de tipo `T`**, debe ser serializable a JSON.
-  ///   - `expiryDays`: (Opcional) Número de días hasta que los datos expiren.
-  ///     Por defecto es `_defaultExpiryDays = 7`.
+  /// **Tipos de Datos Soportados:**
   ///
-  /// Ejemplo:
+  /// El tipo de dato `T` del parámetro `value` debe ser serializable a JSON.
+  /// Esto incluye tipos primitivos (String, int, double, bool), `List`, `Map`
+  /// y objetos personalizados que puedan ser convertidos a JSON mediante
+  /// `jsonEncode`.
+  ///
+  /// **Parámetros:**
+  ///
+  /// - `key`: `String` - La clave única bajo la cual se almacenarán los datos.
+  ///     Esta clave será utilizada posteriormente para recuperar los datos.
+  /// - `value`: `T` - El dato que se desea almacenar en la caché. Debe ser de un
+  ///     tipo serializable a JSON.
+  /// - `expiryDuration`: `Duration?` (Opcional) - Duración después de la cual los
+  ///     datos almacenados se considerarán expirados y serán eliminados por el
+  ///     recolector de basura. Si no se especifica, se utiliza el valor por defecto
+  ///     `_defaultExpiryDuration`.
+  ///
+  /// **Ejemplos de Uso:**
+  ///
   /// ```dart
   /// // Almacenando un Map<String, dynamic>
   /// await JCacheManager.setData<Map<String, dynamic>>(
   ///   key: 'datosUsuario',
   ///   value: {'nombre': 'Juan', 'edad': 30},
+  ///   expiryDuration: Duration(hours: 2), // Expira en 2 horas
   /// );
   ///
   /// // Almacenando un String
   /// await JCacheManager.setData<String>(
   ///   key: 'nombreUsuario',
   ///   value: 'Juan Perez',
+  ///   expiryDuration: Duration(days: 30), // Expira en 30 días
   /// );
   /// ```
+  ///
+  /// **Excepciones:**
+  ///
+  /// - `JsonCacheException`: Se lanza si ocurre un error durante la
+  ///     serialización del `value` a formato JSON.
   static Future<void> setData<T>({
     required String key,
     required T value,
-    int? expiryDays,
+    Duration? expiryDuration,
   }) async {
+    _checkInitialized();
+    if (expiryDuration != null && expiryDuration.isNegative) {
+      throw ArgumentError(
+          'expiryDuration cannot be negative. It must be a positive value.');
+    }
     final hashKey = _generateHashKey(key);
     final datetime = DateTime.now();
     // Variable para almacenar el valor encoded, nullable por si falla
@@ -269,7 +477,7 @@ class JCacheManager {
           'key': key,
           'data': value,
         },
-        expiryDays: expiryDays ?? _defaultExpiryDays,
+        expiryDuration: expiryDuration ?? _defaultExpiryDuration,
         dataType: JCacheManagerDataType.data,
         createdAt: datetime,
         updatedAt: datetime,
@@ -282,22 +490,34 @@ class JCacheManager {
     await _cacheBox.put(hashKey, encodedValue);
   }
 
-  /// Recupera datos de la caché.
+  /// **Recupera datos de la caché asociados a una clave específica.**
   ///
-  /// Deserializa el valor JSON asociado a la clave especificada y lo devuelve.
-  /// Si los datos han expirado o no existen, se devuelve `null`.
+  /// Busca en la caché un elemento asociado a la clave proporcionada. Si se
+  /// encuentra un elemento válido (no expirado), lo deserializa desde formato
+  /// JSON y lo devuelve. Si el elemento no existe, ha expirado o no puede
+  /// ser deserializado, se devuelve `null`.
   ///
-  /// Parámetros:
-  ///   - `key`: La clave única de los datos a recuperar.
-  ///   - `expiryDays`: (Opcional) Nuevo tiempo de expiración para los datos.
-  ///     Si se proporciona, actualiza el tiempo de expiración del registro.
-  ///     Por defecto es `_defaultExpiryDays = 7`.
+  /// **Parámetros:**
   ///
-  /// Devoluciones:
-  ///   - El dato deserializado **de tipo `T`**, o `null` si no existe o ha expirado,
-  ///     o si ocurre un error durante la deserialización.
+  /// - `key`: `String` - La clave única de los datos que se desean recuperar.
+  /// - `expiryDuration`: `Duration?` (Opcional) - Nueva duración de expiración para los datos
+  ///     recuperados. Si se proporciona, se actualiza el tiempo de expiración del
+  ///     registro en la caché, extendiendo su validez por la duración
+  ///     especificada. Si no se proporciona, se mantiene la duración de expiración
+  ///     original o el valor por defecto `_defaultExpiryDuration` si no se había
+  ///     establecido previamente.
   ///
-  /// Ejemplo:
+  /// **Devoluciones:**
+  ///
+  /// - `Future<T?>` - Un `Future` que se completa con el dato deserializado de
+  ///     tipo `T` si se encuentra un elemento válido para la clave especificada.
+  ///     Retorna `null` en los siguientes casos:
+  ///     - No existe ningún elemento asociado a la clave en la caché.
+  ///     - El elemento existente ha expirado.
+  ///     - Ocurre un error durante la deserialización JSON del elemento.
+  ///
+  /// **Ejemplos de Uso:**
+  ///
   /// ```dart
   /// // Ejemplo recuperando un Map<String, dynamic>
   /// Map<String, dynamic>? datosUsuario = await JCacheManager.getData<Map<String, dynamic>>('datosUsuario');
@@ -313,27 +533,31 @@ class JCacheManager {
   ///   print('Nombre recuperado: $nombre');
   /// }
   /// ```
+  ///
+  /// **Excepciones:**
+  ///
+  /// - `JsonCacheException`: Se lanza si ocurre un error durante la
+  ///     deserialización del valor JSON desde la caché. En este caso, la entrada
+  ///     corrupta se elimina automáticamente de la caché.
   static Future<T?> getData<T>(
     String key, {
-    int? expiryDays,
+    Duration? expiryDuration,
   }) async {
+    _checkInitialized();
+    if (expiryDuration != null && expiryDuration.isNegative) {
+      throw ArgumentError(
+          'expiryDuration cannot be negative. It must be a positive value.');
+    }
     final hashKey = _generateHashKey(key);
     final jsonString = _cacheBox.get(hashKey);
     // ...
     if (jsonString != null) {
-      // Variable para almacenar la información deserializada,
-      // nullable por si falla
       JCacheManagerData? information;
       try {
         information = JCacheManagerData.fromJson(jsonDecode(jsonString));
-        // } catch (e) {
-        //   debugPrint('Error decoding JSON for key: $key. Error: $e');
-        //   // Eliminar la entrada corrupta de la caché aquí:
-        //   await _cacheBox.delete(hashKey);
-        //   // Devuelve null al fallar la deserialización
-        //   return null;
-        // }
       } on FormatException catch (e) {
+        debugPrint(
+            'JCacheManager: [getData] Error decoding JSON for key: "$key". FormatException: $e');
         // Eliminar entrada corrupta de la caché
         await _cacheBox.delete(hashKey);
         throw JsonCacheException(
@@ -343,7 +567,7 @@ class JCacheManager {
       // ...
       if (!_isExpired(information)) {
         information.updatedAt = DateTime.now();
-        information.expiryDays = expiryDays ?? _defaultExpiryDays;
+        information.expiryDuration = expiryDuration ?? _defaultExpiryDuration;
         try {
           await _cacheBox.put(
             hashKey,
@@ -351,10 +575,8 @@ class JCacheManager {
             jsonEncode(information.toJson()),
           );
         } catch (e) {
-          // En este caso, el error al re-encode no debe impedir la devolución
-          // de los datos (antiguos pero válidos). Aquí seguimos adelante.
           debugPrint(
-              'Error re-encoding data to JSON after update for key: $key. Error: $e');
+              'JCacheManager: [getData] Metadata update failed for key: "$key" after data retrieval. Data retrieval successful, but update to cache entry may have failed. Error: $e');
         }
         return information.data['data'] as T;
       } else {
@@ -364,29 +586,50 @@ class JCacheManager {
     return null;
   }
 
-  /// Almacena la ruta de un archivo en la caché.
+  /// **Almacena la ruta a un archivo local en la caché, asociado a una URL única.**
   ///
-  /// Asocia la ruta del archivo con una URL única y la guarda en la caché.
-  /// La ruta del archivo se elimina automáticamente después de `expiryDays` días.
+  /// Asocia una URL única con la ruta local de un archivo y guarda esta
+  /// información en la caché. Esto es útil para cachear la ubicación de
+  /// archivos descargados o generados localmente, utilizando la URL como clave
+  /// para su posterior recuperación. La ruta del archivo se almacenará
+  /// de forma persistente y estará sujeta a expiración.
   ///
-  /// Parámetros:
-  ///   - `url`: La URL única para identificar el archivo.
-  ///   - `path`: La ruta local del archivo a cachear.
-  ///   - `expiryDays`: (Opcional) Número de días hasta que la ruta del archivo expire.
-  ///     Por defecto es `_defaultExpiryDays = 7`.
+  /// **Parámetros:**
   ///
-  /// Ejemplo:
+  /// - `url`: `String` - La URL única que se utilizará como clave para identificar
+  ///     y recuperar la ruta del archivo en caché. Idealmente, debería ser la URL
+  ///     de origen del archivo o un identificador único relacionado.
+  /// - `path`: `String` - La ruta local del archivo que se desea cachear. Debe
+  ///     ser una ruta válida en el sistema de archivos del dispositivo.
+  /// - `expiryDuration`: `Duration?` (Opcional) - Duración después de la cual la
+  ///     entrada de la ruta del archivo en caché se considerará expirada. Tras
+  ///     la expiración, la entrada podrá ser eliminada por el recolector de basura.
+  ///     Si no se especifica, se utiliza el valor por defecto `_defaultExpiryDuration`.
+  ///
+  /// **Ejemplo de Uso:**
+  ///
   /// ```dart
   /// await JCacheManager.setFile(
   ///   url: 'https://example.com/miArchivo',
   ///   path: '/ruta/local/mi_archivo.png',
+  ///   expiryDuration: Duration(hours: 12), // Expira en 12 horas
   /// );
   /// ```
+  ///
+  /// **Excepciones:**
+  ///
+  /// - `JsonCacheException`: Se lanza si ocurre un error durante la
+  ///     serialización de los datos de la ruta del archivo a formato JSON.
   static Future<void> setFile({
     required String url,
     required String path,
-    int? expiryDays,
+    Duration? expiryDuration,
   }) async {
+    _checkInitialized();
+    if (expiryDuration != null && expiryDuration.isNegative) {
+      throw ArgumentError(
+          'expiryDuration cannot be negative. It must be a positive value.');
+    }
     final hashKey = _generateHashKey(url);
     final datetime = DateTime.now();
     try {
@@ -399,7 +642,7 @@ class JCacheManager {
             _defaultResourceUrl: url,
             _defaultResourcePath: path,
           },
-          expiryDays: expiryDays ?? _defaultExpiryDays,
+          expiryDuration: expiryDuration ?? _defaultExpiryDuration,
           dataType: JCacheManagerDataType.file,
           createdAt: datetime,
           updatedAt: datetime,
@@ -411,22 +654,49 @@ class JCacheManager {
     }
   }
 
-  /// Recupera la ruta de un archivo desde la caché.
+  /// **Recupera la ruta a un archivo local desde la caché, utilizando su URL asociada.**
   ///
-  /// Devuelve la ruta del archivo asociada a la URL especificada. Si la ruta
-  /// ha expirado o no existe, o si el archivo local ya no existe, se devuelve `null`.
+  /// Busca en la caché la ruta de un archivo local que fue previamente
+  /// almacenada utilizando la URL especificada como clave. Si se encuentra una
+  /// entrada válida (no expirada) y el archivo local aún existe en la ruta
+  /// especificada, se devuelve la ruta del archivo. En caso contrario, se
+  /// devuelve `null`.
   ///
-  /// Parámetros:
-  ///   - `url`: La URL única del archivo a recuperar.
-  ///   - `expiryDays`: (Opcional) Nuevo tiempo de expiración para la ruta del archivo.
-  ///     Si se proporciona, actualiza el tiempo de expiración del registro.
-  ///     Por defecto es `_defaultExpiryDays = 7`.
+  /// **Proceso de Recuperación y Validación:**
   ///
-  /// Devoluciones:
-  ///   - La ruta del archivo (tipo `String`), o `null` si no existe, ha expirado,
-  ///     o el archivo local ya no está presente.
+  /// 1. **Búsqueda en Caché:** Se busca la entrada en la caché utilizando la URL
+  ///    proporcionada, generando su clave hash correspondiente.
+  /// 2. **Deserialización y Expiración:** Si se encuentra una entrada, se
+  ///    deserializa desde JSON y se verifica si ha expirado (`_isExpired`).
+  /// 3. **Verificación de Existencia del Archivo:** Si la entrada no ha expirado,
+  ///    se verifica que el archivo local aún exista en la ruta almacenada.
+  /// 4. **Retorno de la Ruta o `null`:** Si todas las verificaciones son exitosas,
+  ///    se devuelve la ruta del archivo. De lo contrario, se devuelve `null`
+  ///    y la entrada en caché se invalida (se elimina).
   ///
-  /// Ejemplo:
+  /// **Parámetros:**
+  ///
+  /// - `url`: `String` - La URL única del archivo cuya ruta local se desea
+  ///     recuperar desde la caché. Debe ser la misma URL utilizada al
+  ///     almacenar la ruta con `setFile`.
+  /// - `expiryDuration`: `Duration?` (Opcional) - Nueva duración de expiración para la ruta
+  ///     del archivo recuperada. Si se proporciona, se actualiza el tiempo de
+  ///     expiración del registro en la caché, extendiendo su validez. Si no se
+  ///     proporciona, se mantiene la duración de expiración original o el valor
+  ///     por defecto `_defaultExpiryDuration` si no se había establecido previamente.
+  ///
+  /// **Devoluciones:**
+  ///
+  /// - `Future<String?>` - Un `Future` que se completa con la ruta del archivo
+  ///     (tipo `String`) si se encuentra una entrada válida en la caché y el
+  ///     archivo local existe. Retorna `null` en los siguientes casos:
+  ///     - No existe ninguna entrada en caché para la URL especificada.
+  ///     - La entrada en caché ha expirado.
+  ///     - El archivo local en la ruta almacenada ya no existe.
+  ///     - Ocurre un error durante la deserialización JSON de la entrada.
+  ///
+  /// **Ejemplo de Uso:**
+  ///
   /// ```dart
   /// String? rutaArchivo = await JCacheManager.getFile('https://example.com/miArchivo');
   /// if (rutaArchivo != null) {
@@ -435,10 +705,24 @@ class JCacheManager {
   ///   print('Ruta del archivo no encontrada o expirada.');
   /// }
   /// ```
+  ///
+  /// **Excepciones:**
+  ///
+  /// - `JsonCacheException`: Se lanza si ocurre un error durante la
+  ///     deserialización del valor JSON desde la caché. En este caso, la entrada
+  ///     corrupta se elimina automáticamente de la caché.
+  /// - `FileCacheException`: Se lanza si ocurre un error del sistema de archivos
+  ///     al intentar verificar la existencia del archivo local en la ruta
+  ///     almacenada.
   static Future<String?> getFile(
     String url, {
-    int? expiryDays,
+    Duration? expiryDuration,
   }) async {
+    _checkInitialized();
+    if (expiryDuration != null && expiryDuration.isNegative) {
+      throw ArgumentError(
+          'expiryDuration cannot be negative. It must be a positive value.');
+    }
     final hashKey = _generateHashKey(url);
     final jsonString = _cacheBox.get(hashKey);
     if (jsonString != null) {
@@ -447,6 +731,8 @@ class JCacheManager {
       try {
         archive = JCacheManagerData.fromJson(jsonDecode(jsonString));
       } on FormatException catch (e) {
+        debugPrint(
+            'JCacheManager: [getFile] Error decoding JSON for file URL: "$url". FormatException: $e');
         await _cacheBox.delete(hashKey);
         throw JsonCacheException(
             'Error decoding JSON for file URL: $url. Entry removed from cache.',
@@ -458,17 +744,17 @@ class JCacheManager {
         try {
           if (await file.exists()) {
             archive.updatedAt = DateTime.now();
-            archive.expiryDays = expiryDays ?? _defaultExpiryDays;
+            archive.expiryDuration = expiryDuration ?? _defaultExpiryDuration;
             try {
               await _cacheBox.put(hashKey, jsonEncode(archive.toJson()));
             } catch (e) {
               debugPrint(
-                  'Error re-encoding data to JSON after update for key: $url. Error: $e');
+                  'JCacheManager: [getFile] Metadata update failed for URL: "$url" after file retrieval. File retrieval successful, but update to cache entry may have failed. Error: $e');
             }
             return filePath;
           } else {
             debugPrint(
-                'File not found on path: $filePath for the URL: $url. Invalidating cache.');
+                'JCacheManager: [getFile] File not found on path: $filePath for the URL: $url. Invalidating cache.');
             await _cacheBox.delete(hashKey);
             return null;
           }
@@ -482,9 +768,11 @@ class JCacheManager {
         if (await file.exists()) {
           try {
             await file.delete();
-            debugPrint('Expired file deleted: $filePath');
+            debugPrint(
+                'JCacheManager: [getFile] Expired file deleted: $filePath');
           } catch (e) {
-            debugPrint('Error deleting expired file: $e');
+            debugPrint(
+                'JCacheManager: [getFile] Error deleting expired file: $e');
           }
         }
       }
@@ -492,35 +780,71 @@ class JCacheManager {
     return null;
   }
 
-  /// Elimina un elemento de la caché para la clave especificada.
+  /// **Elimina un elemento de la caché, identificado por su clave.**
   ///
-  /// Elimina tanto datos como rutas de archivos.
+  /// Busca y elimina de la caja de caché de `Hive` el elemento asociado a la
+  /// clave especificada. Este método puede utilizarse para invalidar
+  /// manualmente entradas de caché, ya sean datos o rutas de archivos.
   ///
-  /// Parámetros:
-  ///   - `key`: La clave del elemento a eliminar.
+  /// **Parámetros:**
   ///
-  /// Ejemplo:
+  /// - `key`: `String` - La clave del elemento que se desea eliminar de la caché.
+  ///
+  /// **Ejemplo de Uso:**
+  ///
   /// ```dart
   /// await JCacheManager.remove('miClave');
+  /// print('Elemento con clave "miClave" eliminado de la caché.');
   /// ```
+  ///
+  /// **Nota:**
+  ///
+  /// La eliminación es permanente. Una vez que el elemento es eliminado,
+  /// necesitará ser re-almacenado en la caché si se requiere nuevamente.
   static Future<void> remove(String key) async {
+    _checkInitialized();
     final hashKey = _generateHashKey(key);
     await _cacheBox.delete(hashKey);
   }
 
-  /// Elimina los datos y archivos expirados de la caché.
+  /// **Ejecuta el recolector de basura para eliminar elementos expirados de la caché.**
   ///
-  /// Recorre todos los elementos de la caché y elimina aquellos que han
-  /// excedido su tiempo de expiración. Para los archivos, también intenta
-  /// eliminar el archivo físico del sistema de archivos.
+  /// Este método realiza una limpieza de la caché, recorriendo todos los
+  /// elementos almacenados y eliminando aquellos que han excedido su tiempo
+  /// de expiración (`expiryDuration`). Para las entradas que representan rutas de
+  /// archivos, también intenta eliminar el archivo físico del sistema de
+  /// archivos, liberando espacio de almacenamiento.
   ///
-  /// Útil para liberar espacio de almacenamiento y mantener la caché limpia.
+  /// **Funcionamiento del Recolector de Basura:**
   ///
-  /// Ejemplo:
+  /// 1. **Iteración de Claves:** Obtiene una lista de todas las claves presentes
+  ///    en la caja de caché de `Hive`.
+  /// 2. **Verificación de Expiración:** Para cada clave, recupera la entrada
+  ///    correspondiente, la deserializa y verifica si ha expirado utilizando
+  ///    `_isExpired`.
+  /// 3. **Eliminación de Entradas Expiradas:** Si una entrada ha expirado, se
+  ///    elimina de la caja de caché.
+  /// 4. **Eliminación de Archivos Expirados (para rutas de archivos):** Si la
+  ///    entrada expirada representa una ruta de archivo, se intenta eliminar
+  ///    el archivo físico en la ruta especificada. Los errores durante la
+  ///    eliminación del archivo se registran pero no detienen el proceso.
+  /// 5. **Registro de Resultados:** Al finalizar, registra un resumen de la
+  ///    operación, indicando cuántas entradas y archivos fueron eliminados.
+  ///
+  /// **Ejemplo de Uso:**
+  ///
   /// ```dart
   /// await JCacheManager.garbageCollector();
+  /// print('Recolector de basura ejecutado. Entradas expiradas eliminadas.');
   /// ```
+  ///
+  /// **Nota:**
+  ///
+  /// Se recomienda ejecutar el recolector de basura periódicamente, especialmente
+  /// en aplicaciones que hacen un uso intensivo de la caché, para mantenerla
+  /// optimizada y evitar el consumo excesivo de espacio de almacenamiento.
   static Future<void> garbageCollector() async {
+    _checkInitialized();
     // Obtener la lista de las claves para evitar problemas de
     // modificación concurrente
     final keys = _cacheBox.keys.toList();
@@ -537,9 +861,11 @@ class JCacheManager {
             if (await file.exists()) {
               try {
                 await file.delete();
-                debugPrint('Expired file deleted: $filePath');
+                debugPrint(
+                    'JCacheManager: [garbageCollector] Expired file deleted: $filePath');
               } catch (e) {
-                debugPrint('Error deleting expired file: $e');
+                debugPrint(
+                    'JCacheManager: [garbageCollector] Error deleting expired file: $filePath. Error: $e');
               }
             }
           }
@@ -548,66 +874,108 @@ class JCacheManager {
     });
   }
 
-  /// Libera los recursos utilizados por la caché.
+  /// **Libera los recursos utilizados por la caché al cerrar la caja de `Hive`.**
   ///
-  /// Debe ser llamado cuando la aplicación se cierra o cuando la caché ya no
-  /// es necesaria para liberar recursos como conexiones a la base de datos.
+  /// Este método debe ser llamado cuando la aplicación se cierra o cuando la
+  /// caché ya no es necesaria para liberar recursos del sistema que podrían
+  /// estar retenidos por la caja de caché de `Hive`, como conexiones a archivos
+  /// o memoria.
   ///
-  /// Ejemplo:
+  /// **Ejemplo de Uso:**
+  ///
   /// ```dart
   /// await JCacheManager.dispose();
+  /// print('Recursos de la caché liberados.');
   /// ```
+  ///
+  /// **Importante:**
+  ///
+  /// Después de llamar a `dispose`, la caja de caché no debe ser utilizada
+  /// nuevamente sin reinicializar `JCacheManager` con `init()`.
   static Future<void> dispose() async {
+    _checkInitialized();
     // Cerrar la caja cuando ya no se necesite
     await _cacheBox.close();
   }
 
-  /// Elimina todos los datos de la caché.
+  /// **Elimina TODOS los datos de la caché, vaciando completamente la caja de `Hive`.**
   ///
-  /// Borra completamente todos los elementos almacenados en la caché, tanto
-  /// datos como rutas de archivos.
+  /// Borra de forma irreversible todos los elementos almacenados en la caché,
+  /// incluyendo tanto datos como rutas de archivos. Esta operación libera
+  /// completamente el espacio de almacenamiento utilizado por la caché.
   ///
-  /// Útil para liberar espacio de almacenamiento o resetear la caché.
+  /// **Ejemplo de Uso:**
   ///
-  /// Ejemplo:
   /// ```dart
   /// await JCacheManager.clear();
+  /// print('Caché completamente vaciada.');
   /// ```
+  ///
+  /// **Advertencia:**
+  ///
+  /// Esta operación es destructiva y permanente. Todos los datos en caché se
+  /// perderán y no podrán ser recuperados. Utilizar con precaución.
   static Future<void> clear() async {
+    _checkInitialized();
     await _cacheBox.clear();
   }
 
-  /// Imprime información detallada de un registro específico de la caché.
+  /// **Imprime información detallada sobre un registro específico de la caché en la consola de depuración.**
   ///
-  /// Útil para depuración e inspección del contenido de la caché.
+  /// Útil para fines de depuración e inspección del contenido de la caché.
+  /// Permite examinar en detalle un elemento de la caché identificado por su
+  /// clave, mostrando su tipo, duración de expiración, fechas de creación y
+  /// actualización, clave y valor almacenado en formato JSON formateado.
   ///
-  /// Parámetros:
-  ///   - `key`: La clave del registro a imprimir.
+  /// **Parámetros:**
   ///
-  /// Ejemplo:
+  /// - `key`: `String` - La clave del registro de caché cuya información se
+  ///     desea imprimir en la consola.
+  ///
+  /// **Ejemplo de Uso:**
+  ///
   /// ```dart
-  /// JCacheManager.print('miClave');
+  /// JCacheManager.print('miClave'); // Imprime detalles del elemento con clave 'miClave'
   /// ```
   ///
-  /// Nota: La información se imprime en la consola de depuración.
-  /// Si el registro no existe o ha expirado, no se imprime nada.
+  /// **Nota:**
+  ///
+  /// La información se imprime utilizando `dart:developer.log`, que muestra
+  /// los datos en la consola de depuración con etiquetas descriptivas. Si no
+  /// existe un registro para la clave especificada o si ha expirado, no se
+  /// imprime nada.
   static void print(String key) {
+    _checkInitialized();
     final hashKey = _generateHashKey(key);
     final jsonString = _cacheBox.get(hashKey);
     if (jsonString != null) {
-      final record = JCacheManagerData.fromJson(jsonDecode(jsonString));
-      final data = record.data;
-      var encoder = JsonEncoder.withIndent(' ' * 2);
-      var formattedJson = encoder.convert(data);
-      log(
-        record.dataType == JCacheManagerDataType.data ? 'DATA' : 'FILE',
-        name: 'JCACHE',
-      );
-      log(record.expiryDays.toString(), name: 'Expiry Days');
-      log(record.createdAt.toString(), name: 'Created At');
-      log(record.updatedAt.toString(), name: 'Updated At');
-      log(key, name: 'Key');
-      log(formattedJson, name: 'Value');
+      JCacheManagerData? record;
+      try {
+        record = JCacheManagerData.fromJson(jsonDecode(jsonString));
+        final data = record.data;
+        var encoder = JsonEncoder.withIndent(' ' * 2);
+        var formattedJson = encoder.convert(data);
+        log(
+          record.dataType == JCacheManagerDataType.data ? 'DATA' : 'FILE',
+          name: 'JCACHE',
+        );
+        log(record.expiryDuration.toString(), name: 'Expiry Duration');
+        log(record.createdAt.toString(), name: 'Created At');
+        log(record.updatedAt.toString(), name: 'Updated At');
+        log(key, name: 'Key');
+        log(formattedJson, name: 'Value');
+      } on FormatException catch (e) {
+        debugPrint(
+            'JCacheManager: [print] Error decoding JSON for key: "$key". FormatException: $e');
+        debugPrint(
+            'JCacheManager: [print] Could not print cache entry for key: "$key" due to JSON format error.');
+      } catch (e) {
+        debugPrint(
+            'JCacheManager: [print] Unexpected error while trying to print cache entry for key: "$key". Error: $e');
+      }
+    } else {
+      debugPrint(
+          'JCacheManager: [print] No cache entry found for key: "$key".');
     }
   }
 
