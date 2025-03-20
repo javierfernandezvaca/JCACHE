@@ -1,11 +1,13 @@
 import 'dart:developer';
 import 'dart:io';
 import 'dart:convert';
+import 'dart:typed_data';
+import 'package:crypto/crypto.dart' as crypto;
 import 'package:flutter/material.dart';
 import 'package:hive/hive.dart';
 import 'package:jcache/jcache/exceptions.dart';
 import 'package:path_provider/path_provider.dart';
-import 'package:crypto/crypto.dart';
+import 'package:cryptography/cryptography.dart' as cryptography;
 
 import 'cache_manager_data.dart';
 
@@ -47,6 +49,10 @@ import 'cache_manager_data.dart';
 ///     para operaciones críticas como la serialización/deserialización JSON y
 ///     operaciones del sistema de archivos, facilitando la detección y gestión
 ///     de problemas.
+/// - **Encriptación Opcional de Valores:** Permite habilitar la encriptación de los
+///     valores almacenados en caché para proteger la confidencialidad de los datos
+///     sensibles. La encriptación se basa en AES-256 y utiliza una clave derivada
+///     de una cadena de texto (`encryptionKey`) proporcionada en la inicialización.
 ///
 /// **Uso Principal:**
 ///
@@ -64,6 +70,7 @@ import 'cache_manager_data.dart';
 ///   await JCacheManager.init(
 ///     cacheName: 'miCachePersonalizada',  // Nombre para cache (opcional)
 ///     defaultExpiryDuration: Duration(days: 15), // Duración de expiración (opcional)
+///     encryptionKey: 'MiFraseDePasoSecretaYLarga', // Habilitar encriptación (opcional)
 ///   );
 ///   runApp(const MyApp());
 /// }
@@ -84,37 +91,78 @@ class JCacheManager {
     }
   }
 
-  /// **Genera una clave hash única utilizando el algoritmo SHA-256.**
-  ///
-  /// Convierte una cadena de entrada arbitraria en una clave hash de longitud
-  /// fija utilizando el algoritmo criptográfico SHA-256. Esta función es
-  /// fundamental para asegurar la unicidad de las claves dentro de la caché
-  /// y para ofuscar las claves originales proporcionadas por el usuario,
-  /// añadiendo una capa básica de seguridad.
-  ///
-  /// **Parámetros:**
-  ///
-  /// - `input`: `String` - La cadena de texto de entrada para la cual se generará
-  ///     el hash SHA-256.
-  ///
-  /// **Devoluciones:**
-  ///
-  /// - `String` - Una cadena de texto que representa el hash SHA-256 de la
-  ///     cadena de entrada. Esta cadena tiene una longitud fija y es adecuada
-  ///     para ser utilizada como clave en la caché.
-  ///
-  /// **Ejemplo:**
-  ///
-  /// ```dart
-  /// String claveOriginal = 'miClaveSecreta';
-  /// String claveHash = JCacheManager._generateHashKey(claveOriginal);
-  /// print('Clave Original: $claveOriginal');
-  /// print('Clave Hash: $claveHash');
-  /// ```
   static String _generateHashKey(String input) {
     final bytes = utf8.encode(input);
-    final digest = sha256.convert(bytes);
+    final digest = crypto.sha256.convert(bytes);
     return digest.toString();
+  }
+
+  // static Uint8List _deriveKeyFromSeedSimple(String seed) {
+  //   final seedBytes = utf8.encode(seed);
+  //   final digest = crypto.sha256.convert(seedBytes);
+  //   final encryptionKeyBytes = Uint8List.fromList(digest.bytes);
+  //   return encryptionKeyBytes;
+  // }
+  static Future<Uint8List> _deriveKeyFromSeedSimple(String seed) {
+    return _deriveKeyWithPBKDF2(seed);
+  }
+
+  // ...
+
+  static const String _encryptionSaltKey = 'jcache_encryption_salt';
+
+  static Future<Uint8List> _generateSecureSalt() async {
+    final secureRandom = crypto.sha256
+        .convert(Uint8List(32))
+        .bytes; // Usar SHA-256 para generar bytes aleatorios seguros
+    return Uint8List.fromList(
+        secureRandom.sublist(0, 16)); // Tomar los primeros 16 bytes como salt
+  }
+
+  static Future<Uint8List> _getEncryptionSalt() async {
+    // Intentar obtener el salt existente de Hive. Si no existe, generar uno nuevo y guardarlo.
+    final existingSaltBase64 = _cacheBox.get(_encryptionSaltKey);
+    if (existingSaltBase64 != null) {
+      return Uint8List.fromList(base64Decode(existingSaltBase64));
+    } else {
+      final salt = await _generateSecureSalt();
+      _cacheBox.put(
+          _encryptionSaltKey, base64Encode(salt)); // Guardar el salt en Hive
+      return salt;
+    }
+  }
+
+  static Future<Uint8List> _deriveKeyWithPBKDF2(String seed) async {
+    const iterations =
+        100000; // Número de iteraciones PBKDF2 (¡Valor alto para seguridad!)
+
+    // 1. Obtener o generar un Salt único para esta caja de caché
+    final salt = await _getEncryptionSalt();
+
+    // 2. Derivar la clave usando PBKDF2 desde el paquete 'cryptography'
+    final key = await cryptography.Pbkdf2(
+      macAlgorithm:
+          // Usar HMAC-SHA256 como función pseudoaleatoria
+          cryptography.Hmac.sha256(),
+      // Número de iteraciones
+      iterations: iterations,
+      // Longitud de la clave en bits (32 bytes)
+      bits: 256,
+    ).deriveKey(
+      // Semilla (String convertida a SecretKey)
+      secretKey:
+          cryptography.SecretKey(utf8.encode(seed)), // ¡Usar el salt generado!
+      // nonce: cryptography.SecretNonce(salt),
+      nonce: salt,
+    );
+    return Uint8List.fromList(
+        await key.extractBytes()); // Convertir a Uint8List antes de retornar
+  }
+
+  // ...
+
+  static bool _isExpired(JCacheManagerData record) {
+    return record.updatedAt.add(record.expiryDuration).isBefore(DateTime.now());
   }
 
   /// **Inicializa `JCacheManager` para su correcto funcionamiento.**
@@ -131,6 +179,12 @@ class JCacheManager {
   /// - Configuración de Expiración por Defecto: Permite establecer la duración de
   ///     expiración por defecto para los elementos de la caché. Si no se
   ///     especifica, se utiliza un valor por defecto predefinido.
+  /// - Habilitación Opcional de Encriptación: Permite habilitar la encriptación
+  ///     de los valores almacenados en la caché. Si se proporciona una cadena de
+  ///     texto en el parámetro `encryptionKey`, se derivará una clave de
+  ///     encriptación a partir de ella y se utilizará para encriptar los datos
+  ///     en Hive. Si `encryptionKey` no se proporciona (es `null`), la caché
+  ///     se abrirá sin encriptación.
   /// - Ejecución del Recolector de Basura Inicial: Lanza el recolector de basura
   ///     (`garbageCollector`) para limpiar cualquier entrada expirada que pudiera
   ///     existir de sesiones anteriores.
@@ -143,6 +197,12 @@ class JCacheManager {
   /// - `defaultExpiryDuration`: `Duration?` (Opcional) - Duración que se utilizará
   ///     como tiempo de expiración por defecto para los elementos de la caché. Si
   ///     no se proporciona, se usa el valor por defecto `_defaultExpiryDuration = 7 días`.
+  /// - `encryptionKey`: `String?` (Opcional) - Cadena de texto (semilla) para
+  ///     derivar la clave de encriptación AES-256. Si se proporciona, se habilita
+  ///     la encriptación de los valores en caché. **¡Advertencia de seguridad!**
+  ///     La seguridad de la encriptación depende completamente de la fortaleza
+  ///     de esta cadena. Utilice una frase de paso larga y compleja. **Si se
+  ///     pierde o se cambia esta clave, los datos encriptados serán irrecuperables.**
   ///
   /// **Ejemplo de Uso:**
   ///
@@ -150,8 +210,9 @@ class JCacheManager {
   /// void main() async {
   ///   WidgetsFlutterBinding.ensureInitialized();
   ///   await JCacheManager.init(
-  ///     cacheName: 'miCachePersonalizada',
-  ///     defaultExpiryDuration: Duration(days: 30),
+  ///     cacheName: 'miCachePersonalizada',            // Nombre para cache (opcional)
+  ///     defaultExpiryDuration: Duration(days: 15),    // Duración de expiración (opcional)
+  ///     encryptionKey: 'MiFraseDePasoSecretaYLarga',  // Habilitar encriptación (opcional)
   ///   );
   ///   runApp(const MyApp());
   /// }
@@ -159,12 +220,26 @@ class JCacheManager {
   static Future<void> init({
     String? cacheName,
     Duration? defaultExpiryDuration,
+    String? encryptionKey,
   }) async {
     if (!_initialized) {
       final directory = await getApplicationDocumentsDirectory();
       Hive.init(directory.path);
       final boxName = cacheName ?? _defaultCacheName;
-      _cacheBox = await Hive.openBox<String>(boxName);
+      HiveCipher? encryptionCipher;
+      if (encryptionKey != null) {
+        Uint8List derivedEncryptionKey =
+            await _deriveKeyFromSeedSimple(encryptionKey);
+        if (derivedEncryptionKey.length != 32) {
+          throw ArgumentError(
+              'Internal error deriving encryption key. Expected a 32-byte key, but got incorrect length.');
+        }
+        encryptionCipher = HiveAesCipher(derivedEncryptionKey);
+      }
+      _cacheBox = await Hive.openBox<String>(
+        boxName,
+        encryptionCipher: encryptionCipher,
+      );
       if (defaultExpiryDuration != null) {
         if (defaultExpiryDuration.isNegative) {
           throw ArgumentError(
@@ -175,33 +250,6 @@ class JCacheManager {
       _initialized = true;
       garbageCollector();
     }
-  }
-
-  /// **Verifica si un registro de caché ha expirado.**
-  ///
-  /// Compara la fecha de última actualización (`updatedAt`) del registro
-  /// `JCacheManagerData` con la fecha y hora actual (`DateTime.now()`).
-  /// Un registro se considera expirado si el tiempo transcurrido desde su
-  /// última actualización excede el tiempo de vida útil definido en `expiryDuration`.
-  ///
-  /// **Parámetros:**
-  ///
-  /// - `record`: `JCacheManagerData` - El registro de caché que se desea verificar
-  ///     si ha expirado. Debe ser una instancia de `JCacheManagerData`.
-  ///
-  /// **Devoluciones:**
-  ///
-  /// - `bool` - Retorna `true` si el registro ha expirado, es decir, si su tiempo
-  ///     de vida útil ha sido excedido. Retorna `false` en caso contrario,
-  ///     indicando que el registro aún es válido.
-  ///
-  /// **Uso Interno:**
-  ///
-  /// Este método está diseñado para ser utilizado internamente por `JCacheManager`
-  /// para la gestión de la expiración de los elementos en caché. No está pensado
-  /// para ser llamado directamente desde fuera de la clase.
-  static bool _isExpired(JCacheManagerData record) {
-    return record.updatedAt.add(record.expiryDuration).isBefore(DateTime.now());
   }
 
   /// **Devuelve el número total de elementos almacenados actualmente en la caché.**
@@ -853,10 +901,10 @@ class JCacheManager {
       final jsonString = _cacheBox.get(key);
       if (jsonString != null) {
         final value = JCacheManagerData.fromJson(jsonDecode(jsonString));
-        final filePath = value.data[_defaultResourcePath] as String;
         if (_isExpired(value)) {
           await _cacheBox.delete(key);
           if (value.dataType == JCacheManagerDataType.file) {
+            final filePath = value.data[_defaultResourcePath] as String;
             final file = File(filePath);
             if (await file.exists()) {
               try {

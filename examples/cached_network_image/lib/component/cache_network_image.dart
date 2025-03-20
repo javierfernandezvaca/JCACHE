@@ -15,17 +15,17 @@ class CachedNetworkImage extends StatelessWidget {
   const CachedNetworkImage({
     super.key,
     required this.imageUrl,
-    this.expiryDays,
+    this.expiryDuration,
   });
 
   final String imageUrl;
-  final int? expiryDays;
+  final Duration? expiryDuration;
 
   @override
   Widget build(BuildContext context) {
     return JCacheWidget(
       url: imageUrl,
-      expiryDays: expiryDays ?? 1,
+      expiryDuration: expiryDuration ?? const Duration(days: 1),
       onInitialized: (event, controller) {
         return OnInitialized(
           event: event,

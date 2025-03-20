@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:developer';
 import 'dart:io';
 
 import 'package:connectivity_plus/connectivity_plus.dart';
@@ -39,21 +38,9 @@ class NewsPage extends StatefulWidget {
 class NewsPageState extends State<NewsPage> {
   final Connectivity _connectivity = Connectivity();
   List<ConnectivityResult> _connectionStatus = [];
-  // late StreamSubscription<ConnectivityResult> _connectivitySubscription;
   late StreamSubscription<List<ConnectivityResult>> _connectivitySubscription;
 
   final newsArticles = <Article>[];
-
-  void _onKeys() async {
-    final keys = await JCacheManager.getKeys();
-    debugger();
-    for (int i = 0; i < keys.length; i++) {
-      var key = keys[i];
-      final data = await JCacheManager.getData(key);
-      JCacheManager.print(key);
-      debugPrint(data.toString());
-    }
-  }
 
   @override
   void initState() {
@@ -61,9 +48,6 @@ class NewsPageState extends State<NewsPage> {
     initConnectivity();
     _connectivitySubscription =
         _connectivity.onConnectivityChanged.listen(_updateConnectionStatus);
-    // ...
-    _onKeys();
-    // ...
   }
 
   @override
@@ -91,7 +75,10 @@ class NewsPageState extends State<NewsPage> {
     setState(() {
       _connectionStatus = result;
     });
-    loadNews();
+    if (!_connectionStatus.contains(ConnectivityResult.none)) {
+      // Online
+      loadNews();
+    }
   }
 
   getNews(Map<String, dynamic>? newsJson) {
@@ -109,24 +96,25 @@ class NewsPageState extends State<NewsPage> {
 
   Future<void> loadNews() async {
     if (_connectionStatus.contains(ConnectivityResult.none)) {
-      // ...
       // Offline
-      // ...
-      final cachedNewsJson = await JCacheManager.getData(newsUrl);
-      getNews(cachedNewsJson);
+      try {
+        final cachedNewsJson = await JCacheManager.getData(newsUrl);
+        getNews(cachedNewsJson);
+      } catch (e) {
+        debugPrint('Error al leer del caché: $e');
+        // ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Error al cargar noticias desde caché.')));
+      }
     } else {
-      // ...
       // Online
-      // ...
       final response = await http.get(Uri.parse(newsUrl));
       if (response.statusCode == 200) {
-        final newsJson = jsonDecode(response.body);
+        final apiNewsJson = jsonDecode(response.body);
         await JCacheManager.setData(
           key: newsUrl,
-          value: newsJson,
+          value: apiNewsJson,
           expiryDuration: const Duration(days: 1),
         );
-        getNews(newsJson);
+        getNews(apiNewsJson);
       }
     }
     setState(() {});
@@ -137,13 +125,15 @@ class NewsPageState extends State<NewsPage> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
+        backgroundColor: Colors.lightBlue.shade900,
         title: const Text(
           'News',
           style: TextStyle(
+            fontSize: 24,
+            fontWeight: FontWeight.bold,
             color: Colors.white,
           ),
         ),
-        backgroundColor: Colors.black,
         actions: [
           Builder(builder: (context) {
             bool offline = _connectionStatus.contains(ConnectivityResult.none);
@@ -152,8 +142,9 @@ class NewsPageState extends State<NewsPage> {
               child: Center(
                 child: Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    color: offline ? Colors.red : Colors.green,
+                    borderRadius: BorderRadius.circular(5),
+                    color:
+                        offline ? Colors.red.shade900 : Colors.green.shade700,
                   ),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
@@ -164,8 +155,9 @@ class NewsPageState extends State<NewsPage> {
                       onTap: () {},
                       child: Text(
                         offline ? 'OFFLINE' : 'ONLINE',
-                        style: const TextStyle(
+                        style: TextStyle(
                           fontWeight: FontWeight.bold,
+                          color: offline ? Colors.white : Colors.black,
                         ),
                       ),
                     ),
@@ -181,32 +173,33 @@ class NewsPageState extends State<NewsPage> {
           loadNews();
         },
         child: newsArticles.isNotEmpty
-            ? Padding(
-                padding: const EdgeInsets.all(8.0),
-                child: ListView.builder(
-                  addAutomaticKeepAlives: true,
-                  itemCount: newsArticles.length,
-                  itemBuilder: (context, index) {
-                    final newsArticle = newsArticles[index];
-                    return Card(
-                      child: NewsArticleWidget(
-                        newsArticle: newsArticle,
-                      ),
-                    );
-                  },
-                ),
+            ? ListView.builder(
+                addAutomaticKeepAlives: true,
+                itemCount: newsArticles.length,
+                itemBuilder: (context, index) {
+                  final newsArticle = newsArticles[index];
+                  return NewsArticleWidget(
+                    newsArticle: newsArticle,
+                  );
+                },
               )
             : Center(
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: <Widget>[
-                    const Text('No news available at the moment'),
+                    const Text(
+                      'No news available at the moment',
+                      style: TextStyle(color: Colors.white),
+                    ),
                     const SizedBox(height: 10),
                     ElevatedButton(
                       onPressed: () {
                         loadNews();
                       },
-                      child: const Text('Try Again'),
+                      child: const Text(
+                        'Try Again',
+                        style: TextStyle(color: Colors.black),
+                      ),
                     ),
                   ],
                 ),
@@ -236,12 +229,14 @@ class NewsArticleWidget extends StatelessWidget {
               horizontal: 16,
               vertical: 8,
             ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   newsArticle.source.name,
                   style: const TextStyle(
+                    fontSize: 20,
                     fontWeight: FontWeight.bold,
                     color: Colors.black,
                   ),
@@ -250,7 +245,7 @@ class NewsArticleWidget extends StatelessWidget {
                   DateFormat('EEE, MMM d, yyyy, h:mm a', 'en_US')
                       .format(newsArticle.publishedAt.toLocal()),
                   style: const TextStyle(
-                    fontWeight: FontWeight.bold,
+                    // fontWeight: FontWeight.bold,
                     color: Colors.black,
                   ),
                 ),
@@ -261,7 +256,7 @@ class NewsArticleWidget extends StatelessWidget {
         if (newsArticle.urlToImage != null)
           JCacheWidget(
             url: newsArticle.urlToImage!,
-            expiryDays: 1,
+            expiryDuration: const Duration(days: 1),
             onDownloading: (event, controller) {
               return Container(
                 color: Colors.black,
@@ -316,11 +311,14 @@ class NewsArticleWidget extends StatelessWidget {
               );
             },
           ),
-        ListTile(
-          title: Text(newsArticle.title),
-          subtitle: Text(newsArticle.description ?? 'Unknow'),
+        Container(
+          color: Colors.white,
+          child: ListTile(
+            title: Text(newsArticle.title),
+            subtitle: Text(newsArticle.description ?? 'Unknow'),
+          ),
         ),
-        const SizedBox(height: 20),
+        const SizedBox(height: 10),
       ],
     );
   }
